@@ -3,7 +3,7 @@
 """
 Created on Fri Apr 10 14:15:40 2020
 
-@author: laurens
+@author: Laurens Sluijterman
 """
 
 #%% Imports
@@ -41,8 +41,7 @@ def get_data(N_train, N_test):
     Returns:
         X_train, Y_train, X_test, Y_test: arrays genereated using y(x) as the mean
         and a normal noise with standar deviation sigma(x).
-    """
-    
+    """  
     X_train=np.array(np.linspace(-1,1,N_train)) 
     Y_train=np.zeros(N_train)
     X_test=np.array(np.linspace(-0.999,0.999,N_test))
@@ -66,8 +65,8 @@ class Neural_network:
        n_hidden: The number of hidden units in the hiddne layer
        n_epochs: The number of training epochs
    
-   TODO: Look up how to correctly add docstring to this class
     """
+    
     def __init__(self, X_train, y_train, n_hidden, n_epochs = 20, verbose = True):
        
         def Loss(y, musigma):
@@ -93,15 +92,28 @@ class Neural_network:
  
 
 def density(model, X_train, Y_train):
+    """This function calculates the unnormalized density of the posterior
+    p(w|D)
+    """
     return np.exp(-model.evaluate(X_train, Y_train, verbose = 0))
 
 
 def get_hypercube(model, h):
     
     """
-
-    """
+    This function initializes a random hypercube around the current weight, w.
+    See Neal 2003 for more details. 
     
+    Parameters:
+        model: the model we are considering
+        h: the scale of the width of the hypercube in each dimension. 
+    
+    Returns:
+        A list containing four lists. The first list gives the lower values
+        of the weight_matrices, the second list the upper values. The third
+        list gives the lower values of the bias terms and the last list
+        the upper values. 
+    """
     weight_matrix_highs = []
     bias_highs = []
     weight_matrix_lows = []
@@ -123,7 +135,8 @@ def get_hypercube(model, h):
 def weight_to_list(weight):
     
     """
-    TODO: FIX BIAS, something goes wrong
+    This function changes the shape of a weight as it is obtained from
+    tensorflow. It outputs two lists containing all the weights and biasses. 
     """
     original_weights = model.get_weights()
     model.set_weights(weight)
@@ -142,6 +155,9 @@ def weight_to_list(weight):
 
 
 def get_new_weight(hypercube):
+    """
+    This function samples a new weight uniformly from within a hypercube
+    """
     n_hidden = 50
     new_weight = np.array([\
               np.random.uniform(size = (1,n_hidden), 
@@ -160,6 +176,18 @@ def get_new_weight(hypercube):
 
 
 def shrink_hypercube(hypercube, current_weight, previous_weight):
+    """ This function shrinks the hypercube 
+    
+    Parameters:
+        hypercube: the original cube from which the previous weight was
+                   sampled. 
+        current_weight: the current weight that is not accepted.
+        previous_weight: the previous weight that was accepted by
+                         'slice_sampler'
+        
+    returns:
+        A shrunk hypercube
+    """   
     hypercube2 = hypercube
     weights_old, bias_old = weight_to_list(previous_weight)
     weights_new, bias_new = weight_to_list(current_weight)
@@ -172,20 +200,37 @@ def shrink_hypercube(hypercube, current_weight, previous_weight):
         if bias_new[j] < bias_old[j]:
             hypercube2[2][j] = bias_new[j]
         else:
-            hypercube2[3][j] = bias_new[j]
+            hypercube2[3][j] = bias_new[j]            
     return hypercube2        
 
 
 def get_weight_grad(model, inputs, outputs):
-    """ Gets gradient of model for given inputs and outputs for all weights"""
-    " This code was written by mpariente and obtained from https://stackoverflow.com/questions/51140950/how-to-obtain-the-gradients-in-keras"
-
+    """ Gets gradient of model for given inputs and outputs for all weights
+    This code was written by mpariente and obtained from 
+    https://stackoverflow.com/questions/51140950/how-to-obtain-the-gradients-in-keras
+    """
     x, y, sample_weight = model._standardize_user_data(inputs, outputs)
-    output_grad = f(model._standardize_user_data(inputs, outputs))
+    output_grad = f(model._standardize_user_data(inputs, outputs))  
     return output_grad
 
 def shrink_hypercube_2(hypercube, model, current_weight, previous_weight,
                         threshold):
+    """
+    This function shrinks the hypercube using the gradient at the
+    current weight to only update certain dimensions.
+    
+    Paramters:
+        hypercube: the original cube from which the previous weight was
+                   sampled. 
+        model: The tensorflow model we are considering.
+        current_weight: the current weight that is not accepted.       
+        previous_weight: the previous weight that was accepted by
+                         'slice_sampler'
+        threshold: The value that determines if the hypercube will be shrunk
+                   in a certain direction.
+                   
+    Returns: A shrunk hypercube.        
+    """    
     hypercube2 = hypercube
     weights_old, bias_old = weight_to_list(previous_weight)
     weights_new, bias_new = weight_to_list(current_weight)
@@ -204,12 +249,40 @@ def shrink_hypercube_2(hypercube, model, current_weight, previous_weight,
             if weights_new[i] < weights_old[i]:
                 hypercube2[2][i] = bias_new[i]
             else:
-                hypercube2[3][i] = bias_new[i]
+                hypercube2[3][i] = bias_new[i]               
+    return hypercube2
             
     
     
 def slice_sampler(N_samples, model, h, X_train, Y_train, gradient = False,
                   threshold = 0.01):
+    """
+    This function implements a slice sampeler algorith as described in 
+    (Neal 2003). The goal is to obtain samples from p(w|D).
+    
+    Parameters:
+        N_sampels: The amount of desired samples.
+        model: The model we are considering
+        h: The scale of the hypercube.
+        X_train: An array containing the inputs.
+        Y_train: An array containing the targets
+        gradient (optional): If set to true "shrink_hyper_cube_2" will be used.
+                             This function uses the gradient to determine
+                             in which directions the hypercube has to be 
+                             shrunk.
+        threshold: This values determines at which value of (U - L) * gradient
+                   a certain dimension of the hypercube has to be shrunk
+                   if the gradient method is used. Here U en L are the upper 
+                   lower values of the hypercube in a certain dimension.
+    
+    Returns: N_samples samples from p(w|D). 
+    
+    N.B. This function is quite sensitive to the threshold value and to 'h'. 
+         Also not that the samples will not be independent due to the random-
+         walk behaviour of a slice-sampler. This means that a very large
+         number of samples should be taken. I would like to advise not to trust
+         the results of this sampler in this context. 
+    """    
     if gradient == True:
         grads = model.optimizer.get_gradients(model.total_loss, 
                                               model.trainable_weights)
@@ -244,15 +317,24 @@ def slice_sampler(N_samples, model, h, X_train, Y_train, gradient = False,
         if (i / N_samples * 100 % 10) == 0:
             print('progress =', i / N_samples * 100 , '%', '\r', end='')
     model.set_weights(original_weights)
-
     return weight_array
 
 def prediction_sampler_2(x, model, weight_array):
-    
     """
-    Add Docstring
-    """
+    This function calculates the predictions corresponding to
+    a weight array that consists of weights sampeld from the posterior
+    weight distribution. 
     
+    Parameters:
+        x: The x value at which the predictions are evaluated
+        model: The model that we are using
+        weight_array: An array of weights that should be sampeled 
+                      from the posterior weight distribution. p(w|D)
+    
+    Returns:
+        The predictions corresponding to the weights provided by weight_array
+        at a given x value.
+    """
     original_weights = model.get_weights()
     mu_predictions = np.zeros(len(weight_array))
     sigma_predictions = np.zeros(len(weight_array))
@@ -282,5 +364,3 @@ print("x =", x,
       "prediction =", model.predict(np.array([x]))[:,0],
       "real = ", y(x),
       "\n predicted stdev at x = ", np.std(mu_test))
-
-#Er gaat ergens iets mis met de weights, de predictie op het eind is heel raar..

@@ -229,11 +229,11 @@ def get_densities(N_samples, model, X_train, Y_train, weight_scales, bias_scales
         new_weight = original_weights + perturbation
         model.set_weights(new_weight)
         density = np.exp(- model.evaluate(X_train, Y_train, verbose = 0 ))
-#        while density < densities[0] / 100:
-#            perturbation = perturbation / 2
-#            new_weight = original_weights + perturbation
-#            model.set_weights(new_weight)
-#            density = np.exp(- model.evaluate(X_train, Y_train, verbose = 0 ))
+        while density < densities[0] / 10:
+            perturbation = perturbation / 2
+            new_weight = original_weights + perturbation
+            model.set_weights(new_weight)
+            density = np.exp(- model.evaluate(X_train, Y_train, verbose = 0 ))
         weight_array = np.vstack((weight_array,new_weight))
         densities.append(density)
     end = time.time()
@@ -322,8 +322,7 @@ def prediction_sampler(x, N, densities, weight_array, original_weights):
     model.set_weights(original_weights)
     return mu_predictions, sigma_predictions
 
-def prediction_sampler_2(x, model, weight_array):
-    
+def prediction_sampler_2(x, model, weight_array):    
     """
     This function calculates the predictions corresponding to
     a weight array that consists of weights sampeld from the posterior
@@ -334,8 +333,11 @@ def prediction_sampler_2(x, model, weight_array):
         model: The model that we are using
         weight_array: An array of weights that should be sampeled 
                       from the posterior weight distribution. p(w|D)
-    """
     
+    Returns:
+        The predictions corresponding to the weights provided by weight_array
+        at a given x value.
+    """
     original_weights = model.get_weights()
     mu_predictions = np.zeros(len(weight_array))
     sigma_predictions = np.zeros(len(weight_array))
@@ -347,6 +349,7 @@ def prediction_sampler_2(x, model, weight_array):
                          + 1e-3 
     model.set_weights(original_weights)
     return mu_predictions, sigma_predictions
+
 def proposal_distribution(weights, scale):
     
     """
@@ -357,8 +360,9 @@ def proposal_distribution(weights, scale):
         weights: The current weight.
         scale: The standard deviation of the normal noise that is added
                to the weights. 
-    """
     
+    Returns: A perturbed version of the input weight
+    """   
     n_hidden = 50 
     perturbation = np.array([\
               np.random.normal(size = (1, n_hidden), loc = 0, scale = scale)    ,\
@@ -419,8 +423,7 @@ def metropolis_hastings(model, N_samples, scale, X_train, Y_train):
         
 
 
-def test(x, N_simulations, N_samples, N_train, N_test, h_guess, difference):
-    
+def test(x, N_simulations, N_samples, N_train, N_test, h_guess, difference):   
     """This function tests how well the sampling method works. 
     
     Parameters:
@@ -431,12 +434,10 @@ def test(x, N_simulations, N_samples, N_train, N_test, h_guess, difference):
         N_test(int): The amount of test points
         h_guess (int): The initial guess of the scale given to 'get_scales'.
         difference: The desired difference in likelihood given to 'get_scales'.
-    """
-    
+    """    
     testresults1_mu = np.zeros(N_simulations)
     testresults1_sigma = np.zeros(N_simulations)
-    
-    
+        
     for i in range(0, N_simulations):
         Xtrain, Ytrain, Xtest, Ytest = get_data(N_train, 0)
         model = Neural_network(Xtrain, Ytrain, n_hidden = np.array([50]), 
@@ -457,8 +458,7 @@ def test(x, N_simulations, N_samples, N_train, N_test, h_guess, difference):
         print(i / N_simulations * 100, '%', end='\r', flush=False)
     return testresults1_mu, testresults1_sigma\
 
-def test2(x, N_simulations, N_samples, N_train, N_test, h_guess, difference):
-    
+def test2(x, N_simulations, N_samples, N_train, N_test, h_guess, difference):   
     """This function tests how well the sampling method works. 
     
     Parameters:
@@ -469,12 +469,11 @@ def test2(x, N_simulations, N_samples, N_train, N_test, h_guess, difference):
         N_test(int): The amount of test points
         h_guess (int): The initial guess of the scale given to 'get_scales'.
         difference: The desired difference in likelihood given to 'get_scales'.
-    """
-    
+    """  
     testresults1_mu = np.zeros(N_simulations)
     testresults1_sigma = np.zeros(N_simulations)
     
-    
+   
     for i in range(0, N_simulations):
         Xtrain, Ytrain, Xtest, Ytest = get_data(N_train, 0)
         model = Neural_network(Xtrain, Ytrain, n_hidden = np.array([50]), 
@@ -533,7 +532,7 @@ print("x =", x,
 
 
 #%%            
-weight_scales, bias_scales = get_scales(model, 0.01, 1 + 10 / 202, X_train, Y_train)
+weight_scales, bias_scales = get_scales(model, 0.1, 1.05, X_train, Y_train)
     
 densities, weight_array = get_densities(100, model , X_train, \
                                        Y_train, weight_scales, bias_scales)
