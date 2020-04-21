@@ -70,6 +70,7 @@ class Neural_network:
     """
     def __init__(self, X_train, y_train, n_hidden, n_epochs = 20, verbose = True):
        
+        l2 = keras.regularizers.l2
         def Loss(y, musigma):
             dist = tfd.Normal(loc = musigma[..., :1], scale = 1e-3 +\
                               tf.math.softplus(musigma[...,1:]))
@@ -78,11 +79,14 @@ class Neural_network:
         c = 1 / (len(X_train))
         inputs = Input(shape=(1))
         inter = Dense(n_hidden[0], activation='relu', 
-                      kernel_regularizer=keras.regularizers.l2(c))(inputs)
+                      kernel_regularizer = l2(c), 
+                      bias_regularizer = l2(c))(inputs)
         for i in range(len(n_hidden) - 1):
             inter = Dense(n_hidden[i+1], activation='relu', 
-                          kernel_regularizer=keras.regularizers.l2(c))(inter)
-        outputs = Dense(2, kernel_regularizer=keras.regularizers.l2(c), 
+                          kernel_regularizer = l2(c), 
+                          bias_regularizer = l2(c))(inter)
+        outputs = Dense(2, kernel_regularizer = l2(c), 
+                        bias_regularizer = l2(c),
                         activation = 'linear')(inter)
         model = Model(inputs, outputs)
         
@@ -532,7 +536,7 @@ print("x =", x,
 
 
 #%%            
-weight_scales, bias_scales = get_scales(model, 0.1, 1.05, X_train, Y_train)
+weight_scales, bias_scales = get_scales(model, 0.1, 2, X_train, Y_train)
     
 densities, weight_array = get_densities(100, model , X_train, \
                                        Y_train, weight_scales, bias_scales)
