@@ -18,9 +18,10 @@ tfd = tfp.distributions
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
-from math import gamma
 import tensorflow.keras.backend as K
+l2 = keras.regularizers.l2
 #%%
+
 def y(x):  
     """ Returns the mean as function of x. """
     return 0.5 * (x ** 2)
@@ -86,31 +87,28 @@ class Neural_network:
         if uncertainty_estimates == True:
             X_train, X_train_2, Y_train, Y_train_2 = train_test_split(
                     X_train, Y_train, test_size = split)
-        
-        def loss_0(y, musigma):
-            dist = tfd.Normal(loc = musigma[..., :1], 
-                              scale = soft(musigma[...,1:]))
-            return -np.sum(dist.log_prob(y))
-        
+
         def loss(targets, outputs):
             mu = outputs[...,0:1]
             sigma = soft(outputs[...,1:2])
             y = targets[...,0:1]
-            return - K.sum(- K.log(sigma) - 0.5 * K.square((y - mu) / sigma))
+            l = - K.log(sigma) - 0.5 * K.square((y - mu) / sigma)
+            return - l
         
-        c = 1 / (len(X_train))
+        c = 0
         inputs = Input(shape=(1))
-        inter = Dense(n_hidden[0], activation='relu', 
-                      kernel_regularizer=keras.regularizers.l2(c))(inputs)
+        inter = Dense(n_hidden[0], activation='elu', 
+                      kernel_regularizer = l2(c),
+                      bias_regularizer = l2(0))(inputs)
         for i in range(len(n_hidden) - 1):
-            inter = Dense(n_hidden[i+1], activation='relu', 
-                          kernel_regularizer=keras.regularizers.l2(c))(inter)
-        outputs = Dense(2, kernel_regularizer=keras.regularizers.l2(c), 
-                        activation = 'linear')(inter)
-        model = Model(inputs, outputs)
+            inter = Dense(n_hidden[i+1], activation='elu', 
+                          kernel_regularizer = l2(c),
+                          bias_regularizer = l2(0))(inter)
+        outputs = Dense(2, activation = 'linear')(inter)
         
-        model.compile(loss = loss, optimizer='adam')
-        model.fit(X_train, Y_train, batch_size = len(X_train), epochs = n_epochs, 
+        model = Model(inputs, outputs)
+        model.compile(loss = loss, optimizer='nadam')
+        model.fit(X_train, Y_train, batch_size = 1000, epochs = n_epochs, 
                   verbose = verbose)
         self.model = model      
         
@@ -119,84 +117,46 @@ class Neural_network:
             mu_hat = model.predict(X_train_2)[:,0]
             sigma_hat =  soft(model.predict(X_train_2)[:,1])
             targets = np.stack((Y_train_2, mu_hat, sigma_hat), axis = 1)
-            
-            def loss_1(targets, outputs):
-                dist_1 = tfd.Normal(loc = outputs[..., :1], 
-                                    scale = soft(outputs[...,1:2]))
-                return -(dist_1.log_prob(targets[...,:1]))
-            
-            def loss_2(targets, outputs):
-                dist_2 = tfd.Normal(loc = outputs[..., 1:2], 
-                                    scale = soft(outputs[...,2:3]))
-                return -(dist_2.log_prob(targets[...,1:2]))
-            
-            def loss_3(targets, outputs):
-                sigma = soft(outputs[...,1:2])
-                nu = soft(outputs[...,3:4])
-                concentration = nu /2
-                rate = 1 / (2 * sigma ** 2 / nu)
-                dist_3 = tfd.Gamma(concentration = concentration, 
-                                   rate = rate)
-                return -(dist_3.log_prob(targets[..., 2:3] ** 2))
-            
-            def loss_4(targets, outputs):
-                sigma = soft(outputs[...,1:2])
-                nu = soft(outputs[...,3:4])
-                dist_4 = tfd.Chi2(nu)
-                return -(dist_4.log_prob(nu * targets[...,2:3] ** 2 / (sigma ** 2)))
-            
-            def loss_5(targets, outputs):
-                sigma = soft(outputs[...,1:2])
-                nu = soft(outputs[...,3:4])
-                concentration = nu / 2
-                rate = nu / 2
-                dist_4 = tfd.Gamma(concentration = concentration, 
-                                   rate = rate)
-                return -(dist_4.log_prob(targets[...,2:3] ** 2 / (sigma ** 2)))
+
 
             def explicit_loss(targets, outputs):
                 mu = outputs[...,0:1]
                 sigma = soft(outputs[...,1:2])
                 tau = soft(outputs[...,2:3])
-                nu = soft(outputs[...,3:4])
+                nu = 1 + soft(outputs[...,3:4])
                 y = targets[...,0:1]
                 mu_hat = targets[...,1:2]
                 sigma_hat = targets[...,2:3]
+                x = K.square(sigma_hat / sigma)
                 p1 = - K.log(sigma) - 0.5 * K.square((y - mu) / sigma)
                 p2 = - K.log(tau) - 0.5 * K.square((mu_hat - mu) / tau)
-                p3 = nu / 2 * K.log(2 * K.square(sigma) / nu) + \
-                    2 * (nu / 2 -  1) * K.log(sigma_hat) - \
-                    (K.square(sigma_hat) * nu) / (2 * K.square(sigma)) - \
-                    tf.math.lgamma(nu / 2)
+                p3 = - tf.math.lgamma(nu / 2) - (nu / 2) * K.log(2 / nu) + \
+                (nu / 2 - 1) * K.log(x) - x / 2 * nu
                     
-                return K.sum(- p1 - p2 - p3 )
+                return (- p1 - p2 - p3)
             
-            def total_loss(targets, outputs):
-                return loss_1(targets,outputs) + loss_2(targets, outputs) \
-                       + loss_3(targets, outputs)
-            
-            c_2 = 1 / len(X_train_2)
+            c_2 = 0.00
             inputs = Input(shape=(1))
-            inter = Dense(n_hidden_2[0], activation='relu', 
-                          kernel_regularizer=keras.regularizers.l2(c_2))(inputs)
+            inter = Dense(n_hidden_2[0], activation='elu', 
+                          kernel_regularizer = l2(c_2),
+                          bias_regularizer = l2(0))(inputs)
             for i in range(len(n_hidden_2) - 1):
-                inter = Dense(n_hidden_2[i+1], activation='relu', 
-                              kernel_regularizer=keras.regularizers.l2(c_2))(inter)
-            outputs = Dense(4, kernel_regularizer=keras.regularizers.l2(c_2), 
-                            activation = 'linear')(inter)
+                inter = Dense(n_hidden_2[i+1], activation='elu', 
+                              kernel_regularizer = l2(c_2),
+                              bias_regularizer = l2(0))(inter)
+            outputs = Dense(4, activation = 'linear')(inter)
             model_2 = Model(inputs, outputs)
             
-            model_2.compile(loss = explicit_loss, optimizer='adam')
-            model_2.fit(X_train_2, targets, batch_size = len(X_train_2),
+            model_2.compile(loss = explicit_loss, optimizer='nadam')
+            model_2.fit(X_train_2, targets, batch_size = 1000,
                         epochs = n_epochs_2, verbose = verbose2)
             self.model_2 = model_2
        
 #%%
-X_train, Y_train, X_test, Y_test = get_data(10000, 200)            
-n_hidden = np.array([50, 50])
-models = Neural_network(X_train, Y_train, n_hidden,
-                        n_hidden_2 = np.array([50, 50]),n_epochs = 300,
-                        n_epochs_2 = 300, split = 0.2)
+X_train, Y_train, X_test, Y_test = get_data(50000, 200)            
+models = Neural_network(X_train, Y_train, n_hidden = np.array([50, 30]),
+                        n_hidden_2 = np.array([50, 30]),n_epochs = 100,
+                        n_epochs_2 = 100, split = 0.5)
 
 model = models.model
 uncertainty_model = models.model_2
@@ -208,7 +168,7 @@ print(" predicted y =", model.predict(x)[:,0],
       "\n predicted tau =", soft(uncertainty_model.predict(x)[0][2:3]),
       "\n predicted sigma =", soft(model.predict(x)[:,1]),
       "\n real sigma =", sigma(x),
-      "\n predicted nu =", soft(uncertainty_model.predict(x)[0][3:]))
+      "\n predicted nu =", 1 + soft(uncertainty_model.predict(x)[0][3:]))
 
 n_hidden = np.array([50])
 N_tests = 50
@@ -230,15 +190,21 @@ plt.hist(results[:,1])
 np.std(results, axis = 0)
         
 
-plt.plot(X_test, model.predict(X_test)[:,0], label = 'predicted')
-plt.plot(X_test, y(X_test), label = 'true')
+plt.plot(X_test, soft(model.predict(X_test)[:,1]), label = 'predicted sigma')
+plt.plot(X_test, (model.predict(X_test)[:,0]), label = 'predicted y')
+plt.plot(X_test, y(X_test), label = 'true y')
+plt.plot(X_test, sigma(X_test), label = 'true sigma')
 plt.legend()
-plt.title('predicted y ')
+plt.title('predicted vs true ')
 plt.show()
 
-plt.plot(X_test, soft(uncertainty_model.predict(X_test)[:,2]).numpy(),
+plt.plot(X_test, soft(uncertainty_model.predict(X_test)[:,1]).numpy(),
          label = 'predicted')
 #plt.plot(X_test, y(X_test), label = 'true')
 plt.legend()
-plt.title('predicted y ')
 plt.show()
+
+#%%
+mu_hat = model.predict(X_train)[:,0]
+sigma_hat =  soft(model.predict(X_train)[:,1])
+targets = np.stack((Y_train, mu_hat, sigma_hat), axis = 1)

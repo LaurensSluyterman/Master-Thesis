@@ -72,8 +72,6 @@ class Neural_network:
        
         l2 = keras.regularizers.l2
         def Loss(y, musigma):
-            dist = tfd.Normal(loc = musigma[..., :1], scale = 1e-3 +\
-                              tf.math.softplus(musigma[...,1:]))
             return -np.sum(dist.log_prob(y))
         
         c = 1 / (len(X_train))

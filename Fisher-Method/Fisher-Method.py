@@ -15,22 +15,25 @@ import tensorflow.keras.backend as K
 import numpy as np
 import matplotlib.pyplot as plt
 #%% Making a class that contains the model
-
+def soft(x):
+    return 1e-5 + tf.math.softplus(0.05 * x)
 class net2: 
     def __init__(self, X_train, y_train, n_hidden, n_epochs = 2):
        
-        def Loss(y, musigma):
-            dist = tfd.Normal(loc = musigma[..., :1], scale = 1e-3 +\
-                              tf.math.softplus(0.05 * musigma[...,1:]))
-            return -dist.log_prob(y) 
+        def negloglikelihood(y, outputs):
+            mu = outputs[...,0:1]
+            sigma = soft(outputs[...,1:2])
+            l = -K.log(sigma) - 0.5 * K.square((y - mu) / sigma)
+            return -l
         
         inputs = Input(shape=(1))
-        inter = Dense(n_hidden, activation='elu', kernel_regularizer=keras.regularizers.l2(0.0))(inputs)
+        inter = Dense(n_hidden, activation='relu',
+                      kernel_regularizer=keras.regularizers.l2(0.0))(inputs)
         outputs = Dense(2, kernel_regularizer=keras.regularizers.l2(0.0))(inter)
 
         model = Model(inputs, outputs)
-        model.compile(loss = Loss, optimizer='sgd')
-        model.fit(X_train, y_train, batch_size = 50, epochs = n_epochs)
+        model.compile(loss = negloglikelihood, optimizer='adam')
+        model.fit(X_train, y_train, epochs = n_epochs)
         self.model = model
         
         self.weights = self.model.trainable_weights # weight tensors
@@ -40,8 +43,8 @@ class net2:
 
 
 #%%
-n_hidden = 50
-modelc = net2(Xtrain, Ytrain, n_hidden, n_epochs = 20)
+n_hidden = 10
+modelc = net2(X_train, Y_train, n_hidden, n_epochs = 20)
 model = modelc.model
 
     
@@ -50,16 +53,17 @@ symb_inputs = model._feed_inputs + model._feed_targets + model._feed_sample_weig
 f = K.function(symb_inputs, grads)
 
 def get_weight_grad(model, inputs, outputs):
-    """ Gets gradient of model for given inputs and outputs for all weights"""
-    " This code was written by mpariente and obtained from https://stackoverflow.com/questions/51140950/how-to-obtain-the-gradients-in-keras"
-
+    """ Gets gradient of model for given inputs and outputs for all weights
+     This code was written by mpariente and obtained from:
+     https://stackoverflow.com/questions/51140950/how-to-obtain-the-gradients-in-keras"
+     """
     x, y, sample_weight = model._standardize_user_data(inputs, outputs)
     output_grad = f(model._standardize_user_data(inputs, outputs))
     return output_grad
 
 Fisher = np.zeros(shape = (4 * n_hidden + 2, 4 * n_hidden + 2), dtype = 'float64')
-for i in range(len(Xtest)):
-    grads = get_weight_grad(model, np.array([Xtest[i]]), np.array([Ytest[i]]))
+for i in range(len(X_test)):
+    grads = get_weight_grad(model, np.array([X_test[i]]), np.array([Y_test[i]]))
     W1 = grads[0].reshape(n_hidden,1) #Weight matrix 
     b = grads[1].reshape(n_hidden,1) #bias matrix
     W2 = grads[2].reshape(2 * n_hidden,1) #Weightmatrix 2
@@ -67,18 +71,9 @@ for i in range(len(Xtest)):
     gradstotal = np.concatenate((W1, b, W2, b2))
     gradstotalT = np.transpose(gradstotal)
     Fisher += gradstotal.dot(gradstotalT)
-Fisher = Fisher / len(Xtest)
+Fisher = Fisher / len(X_test)
 Vars = np.diag(np.linalg.inv(Fisher))
 print(Vars)
-#%% Adding Noise to the parameters
 
-np.diag(Fisher)
-plt.plot(Xtest, model.predict(Xtest)[:,0])
 
-a = np.array(model.get_weights())       # save weights in a np.array of np.arrays
-b = np.array([np.random.normal(size = (1,n_hidden)),\
-          np.random.normal(size = (n_hidden,)),\
-          np.random.normal(size = (n_hidden, 2)),\
-          np.random.normal(size = (2,))]) 
-c = a + b # Add noise (note that I should still add the correct scales but here I am stuck)
-model.set_weights(c) # Set the new weights
+#NOTE: It is probably going wrong since we are not actually in the maximum...
