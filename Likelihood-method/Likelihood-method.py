@@ -183,7 +183,7 @@ for i in range(N_tests):
     model = models.model
     uncertainty_model = models.model_2
     for j, x in enumerate(x_tests):
-        results[i, j] = model.predict(np.array([x]))[:,0] - y(x) / (
+        results[i, j] = (model.predict(np.array([x]))[:,0] - y(x) )/ (
                 soft(uncertainty_model.predict(np.array([x]))[:,2])).numpy()
     print(i, "/", N_tests)    
 plt.hist(results[:,1])

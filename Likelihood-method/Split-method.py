@@ -43,14 +43,14 @@ def get_data(N_train, N_test):
         and a normal noise with standar deviation sigma(x).
         
     """  
-    X_train=np.array(np.linspace(-1,1,N_train)) 
-    Y_train=np.zeros(N_train)
-    X_test=np.array(np.linspace(-0.999,0.999,N_test))
-    Y_test=np.zeros(N_test)
+    X_train = np.array(np.linspace(-1,1,N_train)) 
+    Y_train = np.zeros(N_train)
+    X_test = np.array(np.linspace(-0.999,0.999,N_test))
+    Y_test = np.zeros(N_test)
     for i in range(0,N_train):
-        Y_train[i]=y(X_train[i])+np.random.normal(0,sigma(X_train[i]))
+        Y_train[i]=y(X_train[i]) + np.random.normal(0,sigma(X_train[i]))
     for i in range(0, N_test):
-        Y_test[i]=y(X_test[i])+np.random.normal(0,sigma(X_test[i]))
+        Y_test[i]=y(X_test[i]) + np.random.normal(0,sigma(X_test[i]))
     return X_train, Y_train, X_test, Y_test
 
 def soft(x):
@@ -74,25 +74,15 @@ class Neural_network:
        mu_uncertainty: Gives the predicted uncertainty of mu_hat at a given
                 value of x.
        sigma_uncertainty: Gives the predicted uncertainty of sigma_hat at a
-                given value of x. 
-       X_train: A matrix containing the inputs of the training data.
-       Y_train: A matrix containing the targets of the training data
-       n_hidden (array): An array containing the number of hidden units
-               for each hidden layer. The length of this array 
-               specifies the number of hidden layers.
-       n_epochs: The number of training epochs for the main neural network.
-       uncertainty_estimatios (boolean): If True the data will be split in two
-               parts where the second part will be used to train a second
-               neural network that will be used to give uncertainty estimates
-               for both the mean and variance predictions of the first network.  
-               
+                given value of x.  
+                
     """
     
     def __init__(self, X_train, Y_train, n_hidden, n_epochs = 20,
                  uncertainty_estimates = True, n_hidden_2 = np.array([50]),
-                 n_epochs_2 = 20, verbose = True):
+                 n_epochs_2 = 20, verbose = True):        
         """ 
-        Parameters
+        Parameters:
             X_train: A matrix containing the inputs of the training data.
             Y_train: A matrix containing the targets of the training data.
             n_hidden (array): An array containing the number of hidden units
@@ -116,7 +106,7 @@ class Neural_network:
             Give the loss function used for the main model.
             
             This function calculates the negative loglikelihood of a
-            normal distribution with mean mu_hat and stdev sigma_hat
+            normal distribution with mean mu_hat and stdev sigma_hat.
             """
             mu = outputs[...,0:1]
             sigma = soft(outputs[...,1:2])
@@ -183,6 +173,25 @@ class Neural_network:
             return model
         
         def get_targets(model_a, model_b, X_a, X_b):
+            """
+            Prepare the data for the uncertainty predicting networks.
+            
+            This function takes two models and makes the mu_seen and
+            mu_unseen arrays. These are then used to predict tau and nu. 
+            
+            Parameters:
+                model_a: The first model.
+                model_b: The second model.
+                X_a: The x-values that were used training model_a
+                X_b: The x-values that were used training model_b       
+            
+            Returns:
+                tau_targets: A (len(X_a) + len(X_b), 2) array contaning 
+                    mu_seen and mu_unseen.
+                nu_targets: A (len(X_a) + len(X_b), 2) array contaning 
+                    sigma_seen and sigma_unseen.
+                
+            """
             mu_own = np.vstack((model_a.predict(X_a), 
                                 model_b.predict(X_b)))[:,0]
             mu_other = np.vstack((model_b.predict(X_a), 
@@ -195,16 +204,16 @@ class Neural_network:
             nu_targets = np.stack((sigma_own, sigma_other), axis = 1)
             return tau_targets, nu_targets
 
-        model = get_model(n_hidden, 0, loss, 2)
-        model_1 = get_model(n_hidden, 0, loss, 2)
-        model_2 = get_model(n_hidden, 0, loss, 2)
-        model_3 = get_model(n_hidden, 0, loss, 2)
-        model_tau_1 = get_model(n_hidden, 0, loss_tau, 1)
-        model_tau_2 = get_model(n_hidden, 0, loss_tau, 1)
-        model_tau_3 = get_model(n_hidden, 0, loss_tau, 1)
-        model_nu_1 = get_model(n_hidden, 0, loss_nu, 1)
-        model_nu_2 = get_model(n_hidden, 0, loss_nu, 1)
-        model_nu_3 = get_model(n_hidden, 0, loss_nu, 1)
+        model = get_model(n_hidden, 1 / len(X_train), loss, 2)
+        model_1 = get_model(n_hidden, 1/ len(X_train_2), loss, 2)
+        model_2 = get_model(n_hidden, 1 / len(X_train_2), loss, 2)
+        model_3 = get_model(n_hidden, 1 / len(X_train_2), loss, 2)
+        model_tau_1 = get_model(n_hidden, 3 / (2 * len(X_train)), loss_tau, 1)
+        model_tau_2 = get_model(n_hidden, 3 / (2 * len(X_train)), loss_tau, 1)
+        model_tau_3 = get_model(n_hidden, 3 / (2 * len(X_train)), loss_tau, 1)
+        model_nu_1 = get_model(n_hidden, 3 / (2 * len(X_train)), loss_nu, 1)
+        model_nu_2 = get_model(n_hidden, 3 / (2 * len(X_train)), loss_nu, 1)
+        model_nu_3 = get_model(n_hidden, 3 / (2 * len(X_train)), loss_nu, 1)
         
         model.fit(X_train, Y_train, batch_size = 100, epochs = n_epochs, 
                   verbose = verbose)
@@ -257,9 +266,10 @@ class Neural_network:
         This function calculates the average of the predictions of the 
         three tau_models that were previously trained. 
         """
-        tau = soft(self.model_tau_1.predict(x)) + soft(self.model_tau_2.predict(x)) + \
-                soft(self.model_tau_3.predict(x))
-        return tau.numpy() / 3
+        tau_1 = soft(self.model_tau_1.predict(x)).numpy()[0]
+        tau_2 = soft(self.model_tau_2.predict(x)).numpy()[0]
+        tau_3 = soft(self.model_tau_3.predict(x)).numpy()[0]
+        return np.max([tau_1, tau_2, tau_3])
         
     def sigma_uncertainty(self, x):
         """
@@ -268,15 +278,20 @@ class Neural_network:
         This function calculates the average of the predictions of the 
         three nu_models that were previously trained. 
         """
-        nu = soft(self.model_nu_1.predict(x)) + soft(self.model_nu_2.predict(x)) + \
-                soft(self.model_nu_3.predict(x))
-        return nu.numpy() / 3 + 1
+        nu_1 = soft(self.model_nu_1.predict(x))
+        nu_2 = soft(self.model_nu_2.predict(x)) 
+        nu_3 = soft(self.model_nu_3.predict(x))
+        return np.min([nu_1, nu_2, nu_3]) + 1
 
-def confidence_bound(sigma, nu):
-    """Create a conficence interval for a given sigma and nu."""
-    low = sigma *  np.sqrt(scipy.stats.chi2.ppf(q = 0.17, df = nu) / nu)
-    high = sigma * np.sqrt(scipy.stats.chi2.ppf(q = 0.83, df = nu) / nu)
-    return [low, high]            
+def confidence_interval(sigma, nu):
+    """
+    Create a conficence interval for a given sigma and nu.
+    
+    This function makes
+    """
+    high = sigma  / np.sqrt(scipy.stats.chi2.ppf(q = 0.17, df = nu) / nu)
+    low = sigma / np.sqrt(scipy.stats.chi2.ppf(q = 0.83, df = nu) / nu)
+    return [low[0], high[0]]            
        
 #%% Testing
 X_train, Y_train, X_test, Y_test = get_data(20000, 200)            
@@ -290,34 +305,50 @@ y(0.3)
 x = np.array([-1])
 print(" predicted y =", model.predict(x)[:,0], 
       "\n real y =", y(x), 
-      "\n predicted tau =", models.mu_uncertainty(x)[0],
+      "\n predicted tau =", models.mu_uncertainty(x),
       "\n predicted sigma =", soft(model.predict(x)[:,1]),
       "\n real sigma =", sigma(x),
-      "\n confidence interval =", confidence_bound(soft(model.predict(x)[:,1]).numpy(),
-                                    models.sigma_uncertainty(x)[0]))
+      "\n confidence interval =", confidence_interval(soft(model.predict(x)[:,1]).numpy(),
+                                    models.sigma_uncertainty(x)))
 
 
-N_tests = 30
+N_tests = 100
 N = 40
 x_tests = np.linspace(-1, 1, N)
 results = np.zeros((N_tests, N))
+results2 = np.zeros((N))
 
 for i in range(N_tests):
     
-    X_train, Y_train, X_test, Y_test = get_data(20000, 0)          
-
+    X_train, Y_train, X_test, Y_test = get_data(10000, 0)          
     models = Neural_network(X_train, Y_train, n_hidden = np.array([50, 50, 30]), 
                             n_hidden_2 = np.array([50, 50, 30]), n_epochs = 30,
                             n_epochs_2 = 30, verbose = False)
     model = models.model
     for j, x in enumerate(x_tests):
-        results[i, j] = model.predict(np.array([x]))[:,0] - y(x) / (
-                soft(models.mu_uncertainty(np.array([x]))[0])).numpy()
-    print(i, "/", N_tests)    
-plt.hist(results[:,24])
-np.std(results, axis = 0)
+        x = np.array([x])
+        results[i, j] = (model.predict(x)[:,0] - y(x)) / (
+                models.mu_uncertainty(x))
         
+        interval = confidence_interval(soft(model.predict(x))[:,1].numpy(),
+                                    models.sigma_uncertainty(x))
+        if sigma(x)[0] > interval[0] and sigma(x)[0] < interval[1]:
+            results2[j] += 1
+    print(i, "/", N_tests)   
+
+for i in range(N):
+    plt.title("x = {x}, sigma = {std}".format(x = np.round(x_tests[i], 2), 
+                                              std = np.round(np.std(results, 
+                                                                    axis = 0)[i],2)))
+    plt.hist(results[:,i])
+    plt.show()
 
 
+Tstd = np.std(results, axis = 0)
+results2        
+
+np.savetxt("results_formula_1.csv", 
+           np.round(np.std(results, axis = 0), 2), delimiter=",")
+np.savetxt('x-values.csv', x_tests, delimiter = ',')
 
 #%%
