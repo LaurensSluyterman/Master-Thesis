@@ -1,9 +1,11 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
-Created on Fri Apr 10 14:15:40 2020
+Created on Fri Apr 10 14:15:40 2020.
 
 @author: Laurens Sluijterman
+
+N.B. This method did not provide accurate results. The code is provided
+for completeness sake. This code should not be used to determine
+uncertainties. 
 """
 
 #%% Imports
@@ -14,25 +16,24 @@ from tensorflow.keras import Model
 import tensorflow_probability as tfp
 tfd = tfp.distributions
 import numpy as np
-import matplotlib.pyplot as plt
-import time
 import tensorflow.keras.backend as K
 
 #%% Functions
 def y(x):  
-    """ Returns the mean as function of x. """
+    """Return the mean as function of x."""
     return 0.5 * (x ** 2)
 
 def sigma(x):
-    """" Returns the standard deviation as a function of x."""
+    """Return the standard deviation as a function of x."""
     return 0.3 * np.exp(x ** 2)
 
-def get_data(N_train, N_test):
-    
+def get_data(N_train, N_test):   
     """
-    Create a dataset containing of N_train training samples
+    Create a dataset.
+    
+    This function reates a dataset containing of N_train training samples
     and N_test testing samples genereated according to y(x)
-    with an added noise term with variance sigma^2
+    with an added noise term with variance sigma^2.
     
     Parameters:
         N_train (int): The number of training samples 
@@ -41,6 +42,7 @@ def get_data(N_train, N_test):
     Returns:
         X_train, Y_train, X_test, Y_test: arrays genereated using y(x) as the mean
         and a normal noise with standar deviation sigma(x).
+        
     """  
     X_train=np.array(np.linspace(-1,1,N_train)) 
     Y_train=np.zeros(N_train)
@@ -54,26 +56,33 @@ def get_data(N_train, N_test):
 
 
 
-class Neural_network: 
-    
+class Neural_network:  
     """
-   This class represents a model.
-   
-   Parameters:
-       X_train: A matrix containing the features of the training data.
-       Y_train: A matrix containing the targets of the training data
-       n_hidden: The number of hidden units in the hiddne layer
-       n_epochs: The number of training epochs
-   
+    This class represents a trained model.
+    
+    In this class a model is made, compiled, and trained.
+    
+    Attributes:
+        model: The trained model.     
+        
     """
     
-    def __init__(self, X_train, y_train, n_hidden, n_epochs = 20, verbose = True):
-       
+    def __init__(self, X_train, y_train, n_hidden, n_epochs = 20, 
+                 verbose = True):
+        """
+        Parameters:
+           X_train: A matrix containing the inputs of the training data.
+           Y_train: A matrix containing the targets of the training data
+           n_hidden (array): An array containing the number of hidden units
+                   for each hidden layer. The length of this array 
+                   specifies the number of hidden layers.
+           n_epochs: The number of training epochs for the main neural network.
+           verbose (boolean): Determines if the training information is shown.
+        """
         def Loss(y, musigma):
             dist = tfd.Normal(loc = musigma[..., :1], scale = 1e-3 +\
                               tf.math.softplus(musigma[...,1:]))
-            return -np.sum(dist.log_prob(y))
-        
+            return -np.sum(dist.log_prob(y))    
         c = 1 / (len(X_train))
         inputs = Input(shape=(1))
         inter = Dense(n_hidden[0], activation='relu', 
@@ -92,15 +101,14 @@ class Neural_network:
  
 
 def density(model, X_train, Y_train):
-    """This function calculates the unnormalized density of the posterior
-    p(w|D)
-    """
+    """Return the unnormalized density of the posterior p(w|D)."""
     return np.exp(-model.evaluate(X_train, Y_train, verbose = 0))
 
 
-def get_hypercube(model, h):
-    
+def get_hypercube(model, h):   
     """
+    Make a hypercube.
+    
     This function initializes a random hypercube around the current weight, w.
     See Neal 2003 for more details. 
     
@@ -113,6 +121,7 @@ def get_hypercube(model, h):
         of the weight_matrices, the second list the upper values. The third
         list gives the lower values of the bias terms and the last list
         the upper values. 
+        
     """
     weight_matrix_highs = []
     bias_highs = []
@@ -132,11 +141,13 @@ def get_hypercube(model, h):
     return [weight_matrix_lows, weight_matrix_highs, bias_lows, bias_highs]
 
 
-def weight_to_list(weight):
-    
+def weight_to_list(weight):  
     """
+    Return a weight in a list format.
+    
     This function changes the shape of a weight as it is obtained from
     tensorflow. It outputs two lists containing all the weights and biasses. 
+
     """
     original_weights = model.get_weights()
     model.set_weights(weight)
@@ -155,9 +166,7 @@ def weight_to_list(weight):
 
 
 def get_new_weight(hypercube):
-    """
-    This function samples a new weight uniformly from within a hypercube
-    """
+    """Sample a new weight uniformly from within a hypercube."""
     n_hidden = 50
     new_weight = np.array([\
               np.random.uniform(size = (1,n_hidden), 
@@ -169,14 +178,19 @@ def get_new_weight(hypercube):
               np.random.uniform(size = (n_hidden, 2), \
                                 low =  np.reshape(hypercube[0][n_hidden:], 
                                                   (2, n_hidden)).T, \
-                                high = np.reshape(hypercube[1][n_hidden:], (2, n_hidden)).T), \
+                                high = np.reshape(hypercube[1][n_hidden:],
+                                                  (2, n_hidden)).T), \
               np.random.uniform(size = (2,), low = hypercube[2][n_hidden:],\
                                 high = hypercube[3][n_hidden:])]) 
     return new_weight
 
 
 def shrink_hypercube(hypercube, current_weight, previous_weight):
-    """ This function shrinks the hypercube 
+    """Shrinks the hypercube.
+    
+    If a weight sampeled from the hypercube is not accepted, the hypercube
+    will be shrunk. This wil be done based on both the rejected weight
+    and the last accepted weight. 
     
     Parameters:
         hypercube: the original cube from which the previous weight was
@@ -187,6 +201,7 @@ def shrink_hypercube(hypercube, current_weight, previous_weight):
         
     returns:
         A shrunk hypercube
+        
     """   
     hypercube2 = hypercube
     weights_old, bias_old = weight_to_list(previous_weight)

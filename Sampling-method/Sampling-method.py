@@ -1,9 +1,11 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
-Created on Tue Mar 10 11:46:50 2020
+Created on Tue Mar 10 11:46:50 2020.
 
 @author: Laurens Sluijterman
+
+N.B. This method did not provide accurate results. The code is provided
+for completeness sake. This code should not be used to determine
+uncertainties. 
 """
 
 #%% Imports
@@ -15,24 +17,23 @@ import tensorflow_probability as tfp
 tfd = tfp.distributions
 import numpy as np
 import matplotlib.pyplot as plt
-import time
-
 #%% Functions 
 
 def y(x):  
-    """ Returns the mean as function of x. """
+    """Return the mean as function of x."""
     return 0.5 * (x ** 2)
 
 def sigma(x):
-    """" Returns the standard deviation as a function of x."""
+    """Return the standard deviation as a function of x."""
     return 0.3 * np.exp(x ** 2)
 
-def get_data(N_train, N_test):
-    
+def get_data(N_train, N_test):  
     """
-    Create a dataset containing of N_train training samples
+    Create a dataset.
+    
+    This function reates a dataset containing of N_train training samples
     and N_test testing samples genereated according to y(x)
-    with an added noise term with variance sigma^2
+    with an added noise term with variance sigma^2.
     
     Parameters:
         N_train (int): The number of training samples 
@@ -41,8 +42,8 @@ def get_data(N_train, N_test):
     Returns:
         X_train, Y_train, X_test, Y_test: arrays genereated using y(x) as the mean
         and a normal noise with standar deviation sigma(x).
-    """
-    
+        
+    """       
     X_train=np.array(np.linspace(-1,1,N_train)) 
     Y_train=np.zeros(N_train)
     X_test=np.array(np.linspace(-0.999,0.999,N_test))
@@ -55,23 +56,33 @@ def get_data(N_train, N_test):
 
 
 
-class Neural_network: 
+class Neural_network:    
+    """
+    This class represents a trained model.
     
+    In this class a model is made, compiled, and trained.
+    
+    Attributes:
+        model: The trained model.     
+        
     """
-   This class represents a model.
-   
-   Parameters:
-       X_train: A matrix containing the features of the training data.
-       Y_train: A matrix containing the targets of the training data
-       n_hidden: The number of hidden units in the hiddne layer
-       n_epochs: The number of training epochs
-   
-   TODO: Look up how to correctly add docstring to this class
-    """
+    
     def __init__(self, X_train, y_train, n_hidden, n_epochs = 20, verbose = True):
-       
+        """
+        Parameters:
+           X_train: A matrix containing the inputs of the training data.
+           Y_train: A matrix containing the targets of the training data
+           n_hidden (array): An array containing the number of hidden units
+                   for each hidden layer. The length of this array 
+                   specifies the number of hidden layers.
+           n_epochs: The number of training epochs for the main neural network.
+           verbose (boolean): Determines if the training information is shown.
+           
+        """      
         l2 = keras.regularizers.l2
         def Loss(y, musigma):
+            dist = tfd.Normal(loc = musigma[..., :1], scale = 1e-3 +\
+                              tf.math.softplus(musigma[...,1:]))
             return -np.sum(dist.log_prob(y))
         
         c = 1 / (len(X_train))
@@ -96,30 +107,27 @@ class Neural_network:
 
 
 
-def get_scales(model, h_guess, difference, X_train, Y_train):
-    
+def get_scales(model, h_guess, difference, X_train, Y_train):   
     """
+    Get the scales on which the weight will be perturbed.
+    
     This function calculates how much an individual weight has to be changed
     in order to make the likelihood on the test set be a factor 'difference'
     larger. If the model finds that the weight is not in a minimum, 
     we will give it a larger scale. 
     
-    parameters:
+    Parameters:
         model: A trained tensorflow model
         h_guess (float): An initial guess for the change
         difference (float): The desired difference in log likelihood
         X_train, Y_train: Arrays containing the x and y values of the test set
         
-    returns:
+    Returns:
         weight_matrix_scales: A list containing all the scales for the 
         weights
         bias_scales: A list containing all the scales for the weights.
         
-    TODO: 
-        Think if I should use the test or training set for the scales?
-        ADD optimizer! Too many weights are zero if the model is worthless.
-    """
-    
+    """    
     weight_matrix_scales = []
     bias_scales = []
     original_weights = model.get_weights()
@@ -163,19 +171,23 @@ def get_scales(model, h_guess, difference, X_train, Y_train):
     return weight_matrix_scales, bias_scales
             
 
-def get_perturbation(original_weights, weight_scales, bias_scales):
-    
+def get_perturbation(original_weights, weight_scales, bias_scales):   
     """
-    This function calculates a multidemensional noise term where each
-    component has a specific scale calculated with 'get_scales'.
+    Get a multidimensional noise sample.
     
-    parameters:
+    This function calculates a multidemensional noise term where each
+    component has a specific scale calculated with 'get_scales'. The noise
+    is taken from a uniform distribution that ranges from -scale to +scale
+    where each scale is different for each dimension and obtained using
+    the function 'get scales'.
+    
+    Parameters:
         original_weights: The original (trained) weights of the model
         weight_scales, bias_scales: The scales obtained by 'get_scales'
+           
+    Returns:
+        perturbations: A noise sample from U[-scales, scales]   
         
-    
-    returns:
-        perturbations: A noise sample from U[-scales, scales]       
     """
     n_hidden = 50
     perturbation = np.array([\
@@ -193,14 +205,15 @@ def get_perturbation(original_weights, weight_scales, bias_scales):
     return perturbation
 
 
-def get_densities(N_samples, model, X_train, Y_train, weight_scales, bias_scales):
-    
+def get_densities(N_samples, model, X_train, Y_train, weight_scales, bias_scales):    
     """
+    Get weights and corresponding densities from p*(w|D).
+    
     This function outputs a set of weights with corresponding densities. It
     does this by using the loss function which equals the density of the data 
     given the weights times the density of the weights. The function 
     normalizes the densities before returning them. The function only
-    accepts weights that result in a likelihood that is at least 1 percent
+    accepts weights that result in a likelihood that is at least 10 percent
     of the likelihood of the data given the trained weights. 
     
     Parameters:
@@ -217,14 +230,12 @@ def get_densities(N_samples, model, X_train, Y_train, weight_scales, bias_scales
     Returns:
         Normalized densities: A list containing the densities of the weights.
         weight_array: An array containing the sampled weights. 
-    """
-    
+        
+    """    
     original_weights = model.get_weights()
     weight_array = original_weights
     densities = [np.exp( - model.evaluate(X_train, Y_train, verbose = 0))]
 
-
-    start = time.time()
     for i in range(N_samples - 1):
         perturbation =  get_perturbation(original_weights, weight_scales, 
                                         bias_scales)
@@ -238,17 +249,17 @@ def get_densities(N_samples, model, X_train, Y_train, weight_scales, bias_scales
             density = np.exp(- model.evaluate(X_train, Y_train, verbose = 0 ))
         weight_array = np.vstack((weight_array,new_weight))
         densities.append(density)
-    end = time.time()
     normalization_constant = np.sum(densities) 
     model.set_weights(original_weights)
-  #  print(end - start) #N = 100 takes 1.6 s
+    #N = 100 takes 1.6 s
     #N = 5000 took 703s
     return densities / normalization_constant, weight_array
 
 
-def expectation(x, densities, weight_array, original_weights):
-    
+def expectation(x, densities, weight_array, original_weights):    
     """
+    Get the expectation of (mu_omega - mu_omegahat)^2.
+    
     This function returns the expectation of (mu(x)_omega_hat -
     mu(x)_omega)^2 with respect to the distribution of the weights that was
     learned using 'get_densities'
@@ -263,9 +274,9 @@ def expectation(x, densities, weight_array, original_weights):
     
     Returns:
         expectation (float): the expectation of (mu(x)_omega_hat -
-                             mu(x)_omega)^2.                     
+                             mu(x)_omega)^2.     
+                
     """
-    
     model.set_weights(original_weights)
     mu_omega_hat = model.predict(np.array([x]))[:,0]
     expectation = 0
@@ -276,8 +287,7 @@ def expectation(x, densities, weight_array, original_weights):
     model.set_weights(original_weights)
     return expectation[0]
 
-def expectation2(x, densities, weight_array, original_weights):
-    
+def expectation2(x, densities, weight_array, original_weights):   
     """ 
     This is the same function as 'expectation but now the expectation of
     (sigma(x)_omega_hat - sigma(x)_omega)^2 is evaluated.   
@@ -294,8 +304,7 @@ def expectation2(x, densities, weight_array, original_weights):
     model.set_weights(original_weights)
     return expectation
 
-def prediction_sampler(x, N, densities, weight_array, original_weights):
-    
+def prediction_sampler(x, N, densities, weight_array, original_weights):    
     """
     This function calculates the predictions corresponding to
     a weight array that consists of weights sampeld uniformely from (a 
@@ -352,8 +361,7 @@ def prediction_sampler_2(x, model, weight_array):
     model.set_weights(original_weights)
     return mu_predictions, sigma_predictions
 
-def proposal_distribution(weights, scale):
-    
+def proposal_distribution(weights, scale):   
     """
     This function gives the proposal distribution that is used by
     'metropolis_hastings'.
@@ -373,8 +381,7 @@ def proposal_distribution(weights, scale):
               np.random.normal(size = (2,), loc = 0, scale = scale)])    
     return weights + perturbation
 
-def metropolis_hastings(model, N_samples, scale, X_train, Y_train):
-    
+def metropolis_hastings(model, N_samples, scale, X_train, Y_train):   
     """
     This functions provides a basic inplementation of a metropolis hastings
     algeorithm. 
@@ -393,8 +400,8 @@ def metropolis_hastings(model, N_samples, scale, X_train, Y_train):
     N.B. this implementation of MH does not work, the weights are not
     in dependent and the scale that is given has an enourmous influence 
     in the results. 
-    """
     
+    """  
     original_weights = model.get_weights()
     weight_array = original_weights
     weight_old = original_weights
@@ -423,10 +430,8 @@ def metropolis_hastings(model, N_samples, scale, X_train, Y_train):
     print("accepted percentage =", accepted / N_samples * 100)
     return(weight_array)
         
-
-
 def test(x, N_simulations, N_samples, N_train, N_test, h_guess, difference):   
-    """This function tests how well the sampling method works. 
+    """This function tests how well the sampling method works.
     
     Parameters:
         x: The x value at which (prediction(x) - real(x)) / predicted stdev
@@ -436,6 +441,13 @@ def test(x, N_simulations, N_samples, N_train, N_test, h_guess, difference):
         N_test(int): The amount of test points
         h_guess (int): The initial guess of the scale given to 'get_scales'.
         difference: The desired difference in likelihood given to 'get_scales'.
+        
+    Returns: 
+        test_results1_mu (array): An array of length N_simulations containing
+            (mu_hat - y(x)) / expected_uncertainty. 
+        test_results1_sigma( (array): An array containing
+            (sigma_hat - sigma(x)) / expected_uncertainty.
+            
     """    
     testresults1_mu = np.zeros(N_simulations)
     testresults1_sigma = np.zeros(N_simulations)
@@ -471,6 +483,7 @@ def test2(x, N_simulations, N_samples, N_train, N_test, h_guess, difference):
         N_test(int): The amount of test points
         h_guess (int): The initial guess of the scale given to 'get_scales'.
         difference: The desired difference in likelihood given to 'get_scales'.
+        
     """  
     testresults1_mu = np.zeros(N_simulations)
     testresults1_sigma = np.zeros(N_simulations)

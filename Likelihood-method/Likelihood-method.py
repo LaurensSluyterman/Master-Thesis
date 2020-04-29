@@ -1,11 +1,10 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
-Created on Thu Apr 16 14:20:41 2020
+Created on Thu Apr 16 14:20:41 2020.
 
 @author: Laurens Sluijterman
-"the structure of defining a neural network in a class was adapted from
- Yarin Gall's Github"
+
+N.B. This method did not provide accurate results. The code is provided
+for completeness sake. 
 """
 
 #%% Imports
@@ -23,17 +22,18 @@ l2 = keras.regularizers.l2
 #%%
 
 def y(x):  
-    """ Returns the mean as function of x. """
+    """Return the mean as function of x."""
     return 0.5 * (x ** 2)
 
 def sigma(x):
-    """" Returns the standard deviation as a function of x."""
+    """Return the standard deviation as a function of x."""
     return 0.3 * np.exp(x ** 2)
 
 def get_data(N_train, N_test):
-    
     """
-    Create a dataset containing of N_train training samples
+    Create a dataset.
+    
+    This function create a dataset containing of N_train training samples
     and N_test testing samples genereated according to y(x)
     with an added noise term with variance sigma^2
     
@@ -44,6 +44,7 @@ def get_data(N_train, N_test):
     Returns:
         X_train, Y_train, X_test, Y_test: arrays genereated using y(x) as the mean
         and a normal noise with standar deviation sigma(x).
+        
     """  
     X_train=np.array(np.linspace(-1,1,N_train)) 
     Y_train=np.zeros(N_train)
@@ -56,32 +57,41 @@ def get_data(N_train, N_test):
     return X_train, Y_train, X_test, Y_test
 
 def soft(x):
-    """Returns log(1 + exp(x)) + 1e-5"""
+    """Return log(1 + exp(x)) + 1e-5."""
     return 1e-5 + tf.math.softplus(x)
 
-class Neural_network: 
-    
+class Neural_network:    
     """
-   This class represents a model.
-   
-   Parameters:
-       X_train: A matrix containing the inputs of the training data.
-       Y_train: A matrix containing the targets of the training data
-       n_hidden (array): An array containing the number of hidden units
-               for each hidden layer. The length of this array 
-               specifies the number of hidden layers.
-       n_epochs: The number of training epochs for the main neural network.
-       uncertainty_estimatios (boolean): If True the data will be split in two
-               parts where the second part will be used to train a second
-               neural network that will be used to give uncertainty estimates
-               for both the mean and variance predictions of the first network.
-        
-   
+    This class represents two models.
+    
+    In this class we have two models. The first model predicts mu 
+    and sigma and te second network is used to estimate the uncertainty
+    in the predictions of the first model. 
+    
+    Attributes:
+        model: The main model that is used to make predictions
+        model_2: The model that is used to make predictions on the uncertainty
+            of the predictions of the first model.
+     
     """
     
     def __init__(self, X_train, Y_train, n_hidden, n_epochs = 20,
                  uncertainty_estimates = True, n_hidden_2 = np.array([50]),
                  n_epochs_2 = 0, split = 0.2, verbose = True):
+        """
+        Parameters:
+           X_train: A matrix containing the inputs of the training data.
+           Y_train: A matrix containing the targets of the training data
+           n_hidden (array): An array containing the number of hidden units
+                   for each hidden layer. The length of this array 
+                   specifies the number of hidden layers.
+           n_epochs: The number of training epochs for the main neural network.
+           uncertainty_estimatios (boolean): If True the data will be split in two
+                   parts where the second part will be used to train a second
+                   neural network that will be used to give uncertainty estimates
+                   for both the mean and variance predictions of the first network.
+         
+        """
         if n_epochs_2 == 0:
             n_epochs_2 = n_epochs
         if uncertainty_estimates == True:
@@ -152,7 +162,7 @@ class Neural_network:
                         epochs = n_epochs_2, verbose = verbose2)
             self.model_2 = model_2
        
-#%%
+#%% Testing
 X_train, Y_train, X_test, Y_test = get_data(50000, 200)            
 models = Neural_network(X_train, Y_train, n_hidden = np.array([50, 30]),
                         n_hidden_2 = np.array([50, 30]),n_epochs = 100,
@@ -203,8 +213,3 @@ plt.plot(X_test, soft(uncertainty_model.predict(X_test)[:,1]).numpy(),
 #plt.plot(X_test, y(X_test), label = 'true')
 plt.legend()
 plt.show()
-
-#%%
-mu_hat = model.predict(X_train)[:,0]
-sigma_hat =  soft(model.predict(X_train)[:,1])
-targets = np.stack((Y_train, mu_hat, sigma_hat), axis = 1)

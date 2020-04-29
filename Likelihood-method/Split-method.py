@@ -61,7 +61,7 @@ class Neural_network:
     """
     This class represents a model with extra networks to give uncertainties.
     
-    Insiert longer description here
+    TODO: Insiert longer description here
    
     Attributes:
         model: The trained network on all of the data, it outputs mu_hat
@@ -320,7 +320,7 @@ results2 = np.zeros((N))
 
 for i in range(N_tests):
     
-    X_train, Y_train, X_test, Y_test = get_data(10000, 0)          
+    X_train, Y_train, X_test, Y_test = get_data(1000, 0)          
     models = Neural_network(X_train, Y_train, n_hidden = np.array([50, 50, 30]), 
                             n_hidden_2 = np.array([50, 50, 30]), n_epochs = 30,
                             n_epochs_2 = 30, verbose = False)
@@ -344,7 +344,7 @@ for i in range(N):
     plt.show()
 
 
-Tstd = np.std(results, axis = 0)
+np.std(results, axis = 0)
 results2        
 
 np.savetxt("results_formula_1.csv", 
