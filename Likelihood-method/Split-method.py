@@ -61,7 +61,20 @@ class Neural_network:
     """
     This class represents a model with extra networks to give uncertainties.
     
-    TODO: Insiert longer description here
+    In this class a total of 10 models are trained. The first model is 
+    trained on the entire dataset and is used as our predictor. This model
+    outputs mu_hat and sigma_hat and is trained using the loglikelihood of 
+    the data assuming a normal distribution. 
+    In order to get an estimate of the uncertainty of mu_hat and sigma_hat,
+    9 more models are trained. First the data is split in three equal parts,
+    then three more models are trained on these parts (with the same 
+    structure as the main model). Then these 3 models are used to produce
+    new targets hat(mu)_seen, hat(mu)_unseen, hat(sigma)_seen, 
+    hat(sigma)_unseen for each pair that we can make by picking two models out
+    of the three. This is done by letting the two model first predict on the
+    part of the data they were trained on and then on the other part. 
+    Using these new targets an additional three models are trained to obtain
+    uncertainty estimates for mu_hat and sigma_hat.
    
     Attributes:
         model: The trained network on all of the data, it outputs mu_hat
@@ -278,19 +291,20 @@ class Neural_network:
         This function calculates the average of the predictions of the 
         three nu_models that were previously trained. 
         """
-        nu_1 = soft(self.model_nu_1.predict(x))
-        nu_2 = soft(self.model_nu_2.predict(x)) 
-        nu_3 = soft(self.model_nu_3.predict(x))
-        return np.min([nu_1, nu_2, nu_3]) + 1
+        nu_1 = soft(self.model_nu_1.predict(x)) + 1
+        nu_2 = soft(self.model_nu_2.predict(x)) + 1
+        nu_3 = soft(self.model_nu_3.predict(x)) + 1
+        return np.min([nu_1, nu_2, nu_3])
 
-def confidence_interval(sigma, nu):
+def confidence_interval(sigma_hat, nu):
     """
     Create a conficence interval for a given sigma and nu.
     
-    This function makes
+    This function makes a confidence interval sigma given sigma_hat and
+    nu_hat. 
     """
-    high = sigma  / np.sqrt(scipy.stats.chi2.ppf(q = 0.17, df = nu) / nu)
-    low = sigma / np.sqrt(scipy.stats.chi2.ppf(q = 0.83, df = nu) / nu)
+    high = sigma_hat  / np.sqrt(scipy.stats.chi2.ppf(q = 0.17, df = nu) / nu)
+    low = sigma_hat / np.sqrt(scipy.stats.chi2.ppf(q = 0.83, df = nu) / nu)
     return [low[0], high[0]]            
        
 #%% Testing
@@ -301,7 +315,6 @@ models = Neural_network(X_train, Y_train, n_hidden = np.array([50, 50, 20]),
 
 model = models.model
 
-y(0.3)
 x = np.array([-1])
 print(" predicted y =", model.predict(x)[:,0], 
       "\n real y =", y(x), 
@@ -320,7 +333,7 @@ results2 = np.zeros((N))
 
 for i in range(N_tests):
     
-    X_train, Y_train, X_test, Y_test = get_data(1000, 0)          
+    X_train, Y_train, X_test, Y_test = get_data(30000, 0)          
     models = Neural_network(X_train, Y_train, n_hidden = np.array([50, 50, 30]), 
                             n_hidden_2 = np.array([50, 50, 30]), n_epochs = 30,
                             n_epochs_2 = 30, verbose = False)
@@ -345,7 +358,7 @@ for i in range(N):
 
 
 np.std(results, axis = 0)
-results2        
+results2 / N_tests    
 
 np.savetxt("results_formula_1.csv", 
            np.round(np.std(results, axis = 0), 2), delimiter=",")
