@@ -408,8 +408,3 @@ plt.xlabel("x")
 plt.ylim(0,1)
 plt.title("Coverage fraction of confidence interval")
 plt.show()
-
-#%%
-
-X_train_1, X_train_2, Y_train_1, Y_train_2 = train_test_split(
-                    X_train, Y_train, test_size = 2 / 3)
