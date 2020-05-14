@@ -18,46 +18,59 @@ import tensorflow.keras.backend as K
 l2 = keras.regularizers.l2
 import scipy
 #%%
-def y(x):  
-    """Return the mean as function of x."""
-    return np.exp(- 6 * x ** 2)
-
-def sigma(x):
-    """Return the standard deviation as a function of x."""
-    return 0.1 * np.exp(- 6 * x ** 2)
-
-def get_data(N_train, N_test):  
-    """
-    Create a dataset.
-    
-    This function reates a dataset containing of N_train training samples
-    and N_test testing samples genereated according to y(x)
-    with an added noise term with variance sigma^2.
-    
-    Parameters:
-        N_train (int): The number of training samples 
-        N_test  (int): The number of test samples
-    
-    Returns:
-        X_train, Y_train, X_test, Y_test: arrays genereated using y(x) as the mean
-        and a normal noise with standar deviation sigma(x).
-        
-    """  
-    X_train = np.array(np.linspace(-1,1,N_train)) 
-    Y_train = np.zeros(N_train)
-    X_test = np.array(np.linspace(-0.999,0.999,N_test))
-    Y_test = np.zeros(N_test)
-    for i in range(0,N_train):
-        Y_train[i]=y(X_train[i]) + np.random.normal(0,sigma(X_train[i]))
-    for i in range(0, N_test):
-        Y_test[i]=y(X_test[i]) + np.random.normal(0,sigma(X_test[i]))
-    return X_train, Y_train, X_test, Y_test
 
 def soft(x):
     """Return log(1 + exp(x)) + 1e-6."""
     return 1e-6 + tf.math.softplus(x)
 
+def y_difficult(x):
+    "returns y"
+    return 0.1 * x[0] + 0.3 * x[1]
 
+def sigma_difficult(x):
+    "returns sigma"
+    return soft(0.1 * x[1] + 0.2 * x[2] - 0.05*  x[4] * x[5])
+   # return 0.1 * np.exp(x1 - x2 + x3 * x4 + x5 ** 0.2) + 0.1
+
+def get_fancy_data(N_train, N_test):
+    """
+    Get a difficult dataset.
+
+    Parameters
+    ----------
+    N_train : TYPE
+        DESCRIPTION.
+    N_test : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    None.
+
+    """
+    mean = [0, 0.1, 0.2, 0.3, 0.1, 0.5, -0.3]
+    A = [[0.1,  0.4, 0, 0, 0,  0,  0], 
+           [0.1,    0.3, 0, 0, 0,  0.1,   0],
+           [0,    0, 0.2, 0,   0, 0, 0],
+           [0.4,    0, 0,   0.2, 0, 0,  0.21],
+           [0,    0, 0,   0,   0.4, 0, 0.2],
+           [-0.2,    0, 0, -0.2, 0,     0.1, 0],
+           [0,    0, 0.7, 0, 0, 0, 0.2]
+           ]
+    cov = np.transpose(A).dot(A)
+    X_train = np.random.multivariate_normal(mean, cov, (N_train,))
+    Y_train = np.zeros(N_train)
+    X_test = np.random.multivariate_normal(mean, cov, (N_test,))
+    Y_test = np.zeros(N_test)
+    for i in range(N_train):
+        Y_train[i] = y_difficult(X_train[i]) \
+            + np.random.normal(0, sigma_difficult(X_train[i]))
+    for i in range(N_test):
+        Y_test[i] = y_difficult(X_test[i]) + \
+                  np.random.normal(0, sigma_difficult(X_test[i]))
+    return X_train, Y_train, X_test, Y_test 
+
+    
 
 class Neural_network: 
     """
@@ -111,7 +124,7 @@ class Neural_network:
             verbose (boolean): A boolean that determines if the training-
                     information is displayed.
         """  
-        input_shape = 1
+        input_shape = 7
         X_train_1, X_train_2, Y_train_1, Y_train_2 = train_test_split(
                     X_train, Y_train, test_size = 2 / 3)
         X_train_2, X_train_3, Y_train_2, Y_train_3 = train_test_split(
@@ -248,22 +261,22 @@ class Neural_network:
         tau_23_targets, nu_23_targets = get_targets(model_2, model_3, 
                                                     X_train_2, X_train_3)
         
-        model_tau_1.fit(np.hstack((X_train_1, X_train_2)), 
+        model_tau_1.fit(np.vstack((X_train_1, X_train_2)), 
                           tau_12_targets, batch_size = 100,
                           epochs = n_epochs_2, verbose = verbose)
-        model_tau_2.fit(np.hstack((X_train_1, X_train_3)), 
+        model_tau_2.fit(np.vstack((X_train_1, X_train_3)), 
                           tau_13_targets, batch_size = 100,
                           epochs = n_epochs_2, verbose = verbose)
-        model_tau_3.fit(np.hstack((X_train_2, X_train_3)), 
+        model_tau_3.fit(np.vstack((X_train_2, X_train_3)), 
                           tau_23_targets, batch_size = 100,
                           epochs = n_epochs_2, verbose = verbose)
-        model_nu_1.fit(np.hstack((X_train_1, X_train_2)), 
+        model_nu_1.fit(np.vstack((X_train_1, X_train_2)), 
                           nu_12_targets, batch_size = 100,
                           epochs = n_epochs_2, verbose = verbose)
-        model_nu_2.fit(np.hstack((X_train_1, X_train_3)), 
+        model_nu_2.fit(np.vstack((X_train_1, X_train_3)), 
                           nu_13_targets, batch_size = 100,
                           epochs = n_epochs_2, verbose = verbose)
-        model_nu_3.fit(np.hstack((X_train_2, X_train_3)), 
+        model_nu_3.fit(np.vstack((X_train_2, X_train_3)), 
                           nu_23_targets, batch_size = 100,
                           epochs = n_epochs_2, verbose = verbose)
         
@@ -297,7 +310,7 @@ class Neural_network:
         nu_1 = soft(self.model_nu_1.predict(x)) + 1
         nu_2 = soft(self.model_nu_2.predict(x)) + 1
         nu_3 = soft(self.model_nu_3.predict(x)) + 1
-        return np.min([nu_1, nu_2, nu_3])
+        return np.median([nu_1, nu_2, nu_3])
 
 def confidence_interval(sigma_hat, nu):
     """
@@ -311,52 +324,51 @@ def confidence_interval(sigma_hat, nu):
     return [low[0], high[0]]            
        
 #%% Testing
-X_train, Y_train, X_test, Y_test = get_data(20000, 1000)                
+X_train, Y_train, X_test, Y_test = get_fancy_data(20000, 1000)                
 models = Neural_network(X_train, Y_train, n_hidden = np.array([50, 50, 20]),
-                        n_hidden_2 = np.array([50, 50, 20]),n_epochs = 200,
-                        n_epochs_2 = 50)
+                        n_hidden_2 = np.array([50, 50, 20]),n_epochs = 50,
+                        n_epochs_2 = 30)
 
 model = models.model
 
-
-x = np.array([-1])
-print(" predicted y =", model.predict(x)[:,0], 
-      "\n real y =", y(x), 
-      "\n predicted tau =", models.mu_uncertainty(x),
-      "\n predicted sigma =", soft(model.predict(x)[:,1]),
-      "\n real sigma =", sigma(x),
-      "\n confidence interval =", confidence_interval(soft(model.predict(x)[:,1]).numpy(),
-                                    models.sigma_uncertainty(x)))
+i = 8
+print(" predicted y =", model.predict(X_test[i].reshape(7,1).T)[:,0], 
+      "\n real y =", y_difficult(X_test[i]), 
+      "\n predicted tau =", models.mu_uncertainty(X_test[i].reshape(7,1).T),
+      "\n predicted sigma =", soft(model.predict(X_test[i].reshape(7,1).T)[:,1]),
+      "\n real sigma =", sigma_difficult(X_test[i]),
+      "\n confidence interval =", confidence_interval(soft(model.predict(
+          X_test[i].reshape(7,1).T)[:,1]).numpy(),
+                                    models.sigma_uncertainty(X_test[i].reshape(7,1).T)))
 
 
 N_tests = 100
-N = 40
-x_tests = np.linspace(-1, 1, N)
-results = np.zeros((N_tests, N))
-results2 = np.zeros((N))
-
+N_x_values = 40
+results = np.zeros((N_tests, N_x_values))
+results2 = np.zeros((N_x_values))
+X_testing =  get_fancy_data(N_x_values, 0)[0]
+N_dimensions = 7 
 for i in range(N_tests):
     
-    X_train, Y_train, X_test, Y_test = get_data(10000, 0)          
+    X_train, Y_train, X_test, Y_test = get_fancy_data(20000, 0)          
     models = Neural_network(X_train, Y_train, n_hidden = np.array([50, 50, 30]), 
-                            n_hidden_2 = np.array([50, 50, 30]), n_epochs = 30,
-                            n_epochs_2 = 30, verbose = False)
+                            n_hidden_2 = np.array([50, 50, 30]), n_epochs = 80,
+                            n_epochs_2 = 50, verbose = False)
     model = models.model
-    for j, x in enumerate(x_tests):
-        x = np.array([x])
-        results[i, j] = (model.predict(x)[:,0] - y(x)) / (
-                models.mu_uncertainty(x))
-        
-        interval = confidence_interval(soft(model.predict(x))[:,1].numpy(),
-                                    models.sigma_uncertainty(x))
-        if sigma(x)[0] > interval[0] and sigma(x)[0] < interval[1]:
+    for j, x in enumerate(X_testing):
+        results[i, j] = (model.predict(x.reshape(N_dimensions,1).T)[:,0] \
+                         - y_difficult(x)) \
+                        / (models.mu_uncertainty(x.reshape(N_dimensions,1).T)) 
+        interval = confidence_interval(soft(model.predict(
+                x.reshape(N_dimensions,1).T)[:,1]).numpy(),
+                models.sigma_uncertainty(x.reshape(N_dimensions,1).T))
+        sigma_real = sigma_difficult(x).numpy()
+        if sigma_real > interval[0] and sigma_real < interval[1]:
             results2[j] += 1
     print(i, "/", N_tests)   
 
-for i in range(N):
-    plt.title("x = {x}, sigma = {std}".format(x = np.round(x_tests[i], 2), 
-                                              std = np.round(np.std(results, 
-                                                                    axis = 0)[i],2)))
+for i in range(N_x_values):
+    plt.title("sigma = {std}".format(std = np.round(np.std(results, axis = 0)[i],2)))
     plt.hist(results[:,i])
     plt.show()
 
@@ -364,52 +376,18 @@ for i in range(N):
 std = np.round(np.std(results, axis = 0), 2)
 stds = results2 / N_tests    
 
-np.savetxt("results_formula_1.csv", 
-           np.round(np.std(results, axis = 0), 2), delimiter=",")
-np.savetxt('x-values.csv', x_tests, delimiter = ',')
+models.mu_uncertainty(0.1 * X_testing[20].reshape(N_dimensions,1).T)
 
 #%% Plots
-x = np.array([10])
-models.mu_uncertainty(x)
-models.sigma_uncertainty(x)
-soft(model.predict(x))[:,1].numpy()
-y(x)
-model.predict()
-model.predict(x)
 
-plt.plot(X_test, y(X_test), label = 'mu')
-plt.plot(X_test, model.predict(X_test)[:,0], label = "mu_hat")
-plt.xlabel("x")
-plt.ylabel("y")
-plt.title('Predicted mu')
-plt.legend()
+plt.hist(std)
+plt.title('Standard deviations of T')
+plt.xlabel("std(T)")
 plt.show()
 
-plt.plot(X_test, sigma(X_test), label = 'sigma')
-plt.plot(X_test, soft(model.predict(X_test)[:,1]), label = "sigma-hat")
-plt.xlabel("x")
-plt.title('Predicted sigma')
-plt.legend()
+plt.hist(stds)
+plt.title('Coverage fractions of confidence interval for $\sigma$')
+plt.xlabel('Coverage fraction')
 plt.show()
 
-plt.plot(X_test, Y_test)
-plt.xlabel("x")
-plt.ylabel("y")
-plt.title("Training data")
-plt.show()
 
-plt.plot(x_tests, std)
-plt.xlabel("x")
-plt.title("Standard deviation of T")
-plt.show()
-
-plt.plot(x_tests, stds)
-plt.xlabel("x")
-plt.ylim(0,1)
-plt.title("Coverage fraction of confidence interval")
-plt.show()
-
-#%%
-
-X_train_1, X_train_2, Y_train_1, Y_train_2 = train_test_split(
-                    X_train, Y_train, test_size = 2 / 3)

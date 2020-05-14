@@ -163,8 +163,6 @@ def weight_to_list(weight):
     model.set_weights(original_weights)
     return weights, bias
 
-
-
 def get_new_weight(hypercube):
     """Sample a new weight uniformly from within a hypercube."""
     n_hidden = 50
@@ -183,7 +181,6 @@ def get_new_weight(hypercube):
               np.random.uniform(size = (2,), low = hypercube[2][n_hidden:],\
                                 high = hypercube[3][n_hidden:])]) 
     return new_weight
-
 
 def shrink_hypercube(hypercube, current_weight, previous_weight):
     """Shrinks the hypercube.
@@ -217,7 +214,6 @@ def shrink_hypercube(hypercube, current_weight, previous_weight):
         else:
             hypercube2[3][j] = bias_new[j]            
     return hypercube2        
-
 
 def get_weight_grad(model, inputs, outputs):
     """ Gets gradient of model for given inputs and outputs for all weights
@@ -266,8 +262,7 @@ def shrink_hypercube_2(hypercube, model, current_weight, previous_weight,
             else:
                 hypercube2[3][i] = bias_new[i]               
     return hypercube2
-            
-    
+              
     
 def slice_sampler(N_samples, model, h, X_train, Y_train, gradient = False,
                   threshold = 0.01):
@@ -322,7 +317,7 @@ def slice_sampler(N_samples, model, h, X_train, Y_train, gradient = False,
                                                  weight_array[i])
                 else:
                     model.set_weights(weight_array[i])
-                    hypercube == shrink_hypercube_2(hypercube, model, 
+                    hypercube = shrink_hypercube_2(hypercube, model, 
                                                    proposed_weight,
                                                    weight_array[i],
                                                    threshold)
