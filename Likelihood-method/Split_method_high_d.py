@@ -24,39 +24,46 @@ def soft(x):
     return 1e-6 + tf.math.softplus(x)
 
 def y_difficult(x):
-    "returns y"
-    return 0.1 * x[0] + 0.3 * x[1]
+    """Return y."""
+    return 0.1 * x[0] + 0.3 * x[1] + 0.1 * x[7] - x[8] * x[11]
 
 def sigma_difficult(x):
-    "returns sigma"
-    return soft(0.1 * x[1] + 0.2 * x[2] - 0.05*  x[4] * x[5])
+    """Return sigma."""
+    return 0.2 * soft(0.1 * x[1] + 0.2 * x[2] - 0.05 *  x[4] * x[5] + 0.1 * x[11]
+                - 0.5 * x[12] + 0.3 * x[14] + 0.2 * x[8])
    # return 0.1 * np.exp(x1 - x2 + x3 * x4 + x5 ** 0.2) + 0.1
 
-def get_fancy_data(N_train, N_test):
+def get_fancy_data(N_train, N_test, mean, A):
     """
     Get a difficult dataset.
+    
+    This function gets a dataset consisting of N_train training values
+    and N_test test values. The y values are 1-dimensional and the x-values
+    are dim(mean) dimensional. The matrix A specifies the covariance matrix
+    of the noise (Sigma = A^T dot A). First, an x value is sampeled from
+    N(mean, Sigma). Secondly, y is calculated via "y_difficult" and 
+    normally distriubted noise is added with standard deviation 
+    "sigma_difficult(x)".
 
-    Parameters
-    ----------
-    N_train : TYPE
-        DESCRIPTION.
-    N_test : TYPE
-        DESCRIPTION.
+    Parameters:
+        N_train (int): The number of desired training samples.
+        N_test (int): The number of desired test samples.
+        mean: (d x1 matrix) The mean of the normal distribution from 
+            which x is sampled.
+        A (d x d matrix): A matrix that specifies the covariance matrix for
+            the normal distribution from which x is sampeled. 
 
-    Returns
-    -------
-    None.
-
+    Returns:
+        X_train: An array of size N_train by dim(mean) consisting of the 
+                training x-values.
+        Y_train: An array of size N_train by 1 consisting of the y values 
+                corresponding to X_train.
+        X_test: An array of size N_testby dim(mean) consisting of the 
+                training x-values.
+        Y_est: An array of size N_test by 1 consisting of the y values 
+                corresponding to X_test.
+                
     """
-    mean = [0, 0.1, 0.2, 0.3, 0.1, 0.5, -0.3]
-    A = [[0.1,  0.4, 0, 0, 0,  0,  0], 
-           [0.1,    0.3, 0, 0, 0,  0.1,   0],
-           [0,    0, 0.2, 0,   0, 0, 0],
-           [0.4,    0, 0,   0.2, 0, 0,  0.21],
-           [0,    0, 0,   0,   0.4, 0, 0.2],
-           [-0.2,    0, 0, -0.2, 0,     0.1, 0],
-           [0,    0, 0.7, 0, 0, 0, 0.2]
-           ]
     cov = np.transpose(A).dot(A)
     X_train = np.random.multivariate_normal(mean, cov, (N_train,))
     Y_train = np.zeros(N_train)
@@ -124,7 +131,7 @@ class Neural_network:
             verbose (boolean): A boolean that determines if the training-
                     information is displayed.
         """  
-        input_shape = 7
+        input_shape = np.shape(X_train)[1]
         X_train_1, X_train_2, Y_train_1, Y_train_2 = train_test_split(
                     X_train, Y_train, test_size = 2 / 3)
         X_train_2, X_train_3, Y_train_2, Y_train_3 = train_test_split(
@@ -298,7 +305,7 @@ class Neural_network:
         tau_1 = soft(self.model_tau_1.predict(x)).numpy()[0]
         tau_2 = soft(self.model_tau_2.predict(x)).numpy()[0]
         tau_3 = soft(self.model_tau_3.predict(x)).numpy()[0]
-        return np.max([tau_1, tau_2, tau_3])
+        return np.median([tau_1, tau_2, tau_3])
         
     def sigma_uncertainty(self, x):
         """
@@ -324,7 +331,17 @@ def confidence_interval(sigma_hat, nu):
     return [low[0], high[0]]            
        
 #%% Testing
-X_train, Y_train, X_test, Y_test = get_fancy_data(20000, 1000)                
+mean = [0, 0.1, 0.2, 0.3, 0.1, 
+        0.5, -0.3, 0.1, -0.2, 0.5,
+        0.5, 0, 0.2, 0.2, -0.2]
+A = [[0.1,  0.4, 0, 0, 0,  0,  0, 0.1, 0.2, -0.3, 0.2, 0.1, -0.1, 0.1, 0], 
+      [0.1, 0.3, 0, 0, 0,  0.1, 0, 0.1, -0.3, -0.3, 0, 0, 0.1, -0.2, 0.3],
+      [0,    0, 0,   0, 0, 0, -0.1, 0.1, 0.4, -0.3, 0.1, 0, 0, 0, 0],
+      [0.4,  0, 0,  0.2, 0, 0,  0.21, 0, 0, 0, 0, 0.1, 0.4, 0.1, 0.2],
+      [0,    0, 0,   0,   0.4, 0, 0.2, 0, -0.2, 0.2, -0.1, 0.1, 0.3, 0.1, 0],
+      [-0.2,  0, 0, -0.2, 0,   0.1, 0, -0.2,  0, 0, -0.2, 0,   0.1, 0, 0],
+      [0,    0, 0.7, 0, 0, 0, 0.2, 0,    0, 0.7, 0, 0, 0, 0.2,0.1 ]]
+X_train, Y_train, X_test, Y_test = get_fancy_data(20000, 1000, mean, A)                
 models = Neural_network(X_train, Y_train, n_hidden = np.array([50, 50, 20]),
                         n_hidden_2 = np.array([50, 50, 20]),n_epochs = 50,
                         n_epochs_2 = 30)
@@ -346,11 +363,10 @@ N_tests = 100
 N_x_values = 40
 results = np.zeros((N_tests, N_x_values))
 results2 = np.zeros((N_x_values))
-X_testing =  get_fancy_data(N_x_values, 0)[0]
-N_dimensions = 7 
+X_testing =  get_fancy_data(N_x_values, 0, mean, A)[0]
+N_dimensions = np.shape(X_testing)[1]
 for i in range(N_tests):
-    
-    X_train, Y_train, X_test, Y_test = get_fancy_data(20000, 0)          
+    X_train, Y_train, X_test, Y_test = get_fancy_data(5000, 0, mean, A)          
     models = Neural_network(X_train, Y_train, n_hidden = np.array([50, 50, 30]), 
                             n_hidden_2 = np.array([50, 50, 30]), n_epochs = 80,
                             n_epochs_2 = 50, verbose = False)
@@ -373,19 +389,22 @@ for i in range(N_x_values):
     plt.show()
 
 
-std = np.round(np.std(results, axis = 0), 2)
-stds = results2 / N_tests    
+std_T = np.round(np.std(results, axis = 0), 2)
+coverage_fractions = results2 / N_tests    
 
+#Note the difference in predicted uncertainties
+models.mu_uncertainty(X_testing[20].reshape(N_dimensions,1).T)
 models.mu_uncertainty(0.1 * X_testing[20].reshape(N_dimensions,1).T)
+models.mu_uncertainty(10 * X_testing[20].reshape(N_dimensions,1).T)
 
 #%% Plots
 
-plt.hist(std)
+plt.hist(std_T)
 plt.title('Standard deviations of T')
 plt.xlabel("std(T)")
 plt.show()
 
-plt.hist(stds)
+plt.hist(coverage_fractions)
 plt.title('Coverage fractions of confidence interval for $\sigma$')
 plt.xlabel('Coverage fraction')
 plt.show()
