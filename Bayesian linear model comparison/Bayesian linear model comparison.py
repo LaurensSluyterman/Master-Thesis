@@ -1,8 +1,8 @@
-# -*- coding: utf-8 -*-
 """
-Spyder Editor
-
-This is a temporary script file.
+In this script we compare a bayesian linear model with a one neuron
+neural network. We compare the exact posterior with the approximate 
+posterior. Note that the file gal.py contains the code to train 
+network with dropout. 
 """
 
 import numpy as np
@@ -11,61 +11,62 @@ from matplotlib import pyplot as plt
 
 const=0.3
 def y(x):
+    """Define the mean of the data."""
     return x + 2 
 
 def sigma(x):
+    """Define the standard deviation of the data."""
     return 1
 
-N = 10000  #I generate 100.000 datapoint
-Ntest = 2000
-Xtrain=np.array(np.linspace(-2,2,N)) #In the interval [-2,2]
-Ytrain=np.zeros(N)
-Xtest=np.array(np.linspace(-1.9,1.9,Ntest)) #In the interval [-2,2]
-Ytest=np.zeros(Ntest)
-real=np.zeros(N)
-real2=np.zeros(Ntest)
-for i in range(0,N):
-    Ytrain[i]=y(Xtrain[i])+np.random.normal(0,sigma(Xtrain[i]))
-    real[i]=y(Xtrain[i])
+N_datapoints = 10000  
+N_test = 2000
+X_train = np.array(np.linspace(-2,2,N_datapoints)) 
+Y_train = np.zeros(N_datapoints)
+X_test = np.array(np.linspace(-1.9,1.9,N_test)) 
+Y_test = np.zeros(N_test)
+real_train = np.zeros(N_datapoints)
+real_test = np.zeros(N_test)
+for i in range(0,N_datapoints):
+    Y_train[i]=y(X_train[i])+np.random.normal(0,sigma(X_train[i]))
+    real_train[i]=y(X_train[i])
 
-for i in range(0, Ntest):
-    Ytest[i]=y(Xtest[i])+np.random.normal(0,sigma(Xtest[i]))
-    real2[i]=y(Xtest[i])
+for i in range(0, N_test):
+    Y_test[i]=y(X_test[i])+np.random.normal(0,sigma(X_test[i]))
+    real_test[i]=y(X_test[i])
+    
 plt.title("Test Data")
-plt.plot(Xtrain,Ytrain)
-plt.plot(Xtrain,real)
+plt.plot(X_train,Y_train)
+plt.plot(X_train,real_train)
 plt.xlabel("x")
 plt.ylabel("y")
 plt.show()
 
 #%% Training a model using Gal's code
-a = np.ones(len(Xtrain))
-Xtrain2 = np.stack((a, Xtrain), axis = -1)
-b = np.ones(len(Xtest))
-Xtest2 = np.stack((b, Xtest), axis = -1)
-model = net(Xtrain2, Ytrain, n_hidden = np.array([1])).model
-plt.plot(Xtest, model.predict(Xtest2), 'o')
+a = np.ones(len(X_train))
+X_train2 = np.stack((a, X_train), axis = -1)
+b = np.ones(len(X_test))
+X_test2 = np.stack((b, X_test), axis = -1)
+model = net(X_train2, Y_train, n_hidden = np.array([1])).model
+plt.plot(X_test, model.predict(X_test2), 'o')
 plt.xlabel('x')
 plt.ylabel('y')
 plt.show()
-plt.plot(Xtest,Ytest)
+plt.plot(X_test,Y_test)
 plt.show()
 model.weights
 
 #%% Exact linear Bayesian model
-a = np.ones(len(Xtrain))
-Phi = np.stack((a, Xtrain), axis = -1)
+a = np.ones(len(X_train))
+Phi = np.stack((a, X_train), axis = -1)
 alpha = 1.0
 beta = 1 
 Sinv = alpha * np.identity(2) + beta * np.transpose(Phi).dot(Phi)
 S = np.linalg.inv(Sinv)
-m = beta * S.dot(np.transpose(Phi)).dot(Ytrain)
+m = beta * S.dot(np.transpose(Phi)).dot(Y_train)
 
+#We compare m to the weights
 weights = np.random.normal(loc = m, scale = np.abs(S))
 
-0.05 * (1 - 0.05) * model.weights[0].numpy()**2 * np.identity(2)
+#We compare S to the following
+0.05 * (1 - 0.05) * model.weights[0].numpy() ** 2 * np.identity(2)
 
-#%%
-l = []
-for i in range(0, 100):
-    l.append(model.predict(np.array([[0,1]])))
