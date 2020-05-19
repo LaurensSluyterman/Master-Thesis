@@ -311,14 +311,15 @@ def confidence_interval(sigma_hat, nu):
     return [low[0], high[0]]            
        
 #%% Testing
+    
+# Test an indidual simulation for 1 value of x
 X_train, Y_train, X_test, Y_test = get_data(20000, 1000)                
 models = Neural_network(X_train, Y_train, n_hidden = np.array([50, 50, 20]),
-                        n_hidden_2 = np.array([50, 50, 20]),n_epochs = 200,
-                        n_epochs_2 = 50)
+                        n_hidden_2 = np.array([50, 50, 20]),n_epochs = 200,                        n_epochs_2 = 50)
 
 model = models.model
 
-
+# Varying x to large values demonstrates the oultier detection ability.
 x = np.array([-1])
 print(" predicted y =", model.predict(x)[:,0], 
       "\n real y =", y(x), 
@@ -328,7 +329,7 @@ print(" predicted y =", model.predict(x)[:,0],
       "\n confidence interval =", confidence_interval(soft(model.predict(x)[:,1]).numpy(),
                                     models.sigma_uncertainty(x)))
 
-
+# Test a number of simulations for multiple values of x
 N_tests = 100
 N = 40
 x_tests = np.linspace(-1, 1, N)
@@ -353,6 +354,13 @@ for i in range(N_tests):
             results2[j] += 1
     print(i, "/", N_tests)   
 
+
+
+#%% Plots
+
+std_T = np.round(np.std(results, axis = 0), 2)
+coverage_fractions = results2 / N_tests    
+
 for i in range(N):
     plt.title("x = {x}, sigma = {std}".format(x = np.round(x_tests[i], 2), 
                                               std = np.round(np.std(results, 
@@ -360,22 +368,6 @@ for i in range(N):
     plt.hist(results[:,i])
     plt.show()
 
-
-std = np.round(np.std(results, axis = 0), 2)
-stds = results2 / N_tests    
-
-np.savetxt("results_formula_1.csv", 
-           np.round(np.std(results, axis = 0), 2), delimiter=",")
-np.savetxt('x-values.csv', x_tests, delimiter = ',')
-
-#%% Plots
-x = np.array([10])
-models.mu_uncertainty(x)
-models.sigma_uncertainty(x)
-soft(model.predict(x))[:,1].numpy()
-y(x)
-model.predict()
-model.predict(x)
 
 plt.plot(X_test, y(X_test), label = 'mu')
 plt.plot(X_test, model.predict(X_test)[:,0], label = "mu_hat")
@@ -398,12 +390,12 @@ plt.ylabel("y")
 plt.title("Training data")
 plt.show()
 
-plt.plot(x_tests, std)
+plt.plot(x_tests, std_T)
 plt.xlabel("x")
 plt.title("Standard deviation of T")
 plt.show()
 
-plt.plot(x_tests, stds)
+plt.plot(x_tests, coverage_fractions)
 plt.xlabel("x")
 plt.ylim(0,1)
 plt.title("Coverage fraction of confidence interval")

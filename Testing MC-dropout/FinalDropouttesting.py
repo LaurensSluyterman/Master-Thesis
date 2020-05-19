@@ -1,7 +1,7 @@
 """"
 Created on Thu Feb 20 21:11:27 2020
 
-@author: Yarin Gal
+@author: Laurens Sluijterman (the class is written by Yarin Gall)
 """
 #%%% Imports
 import warnings
@@ -29,7 +29,7 @@ import time
 class net:
 
     def __init__(self, X_train, y_train, n_hidden, n_epochs = 40,
-        normalize = False, tau = 1, dropout = 0.01):
+        normalize = False, tau = 1, dropout = 0.05):
 
         """ Author: Yarin Gall
             Constructor for the class implementing a Bayesian neural network
@@ -134,68 +134,68 @@ class net:
         # We are done!
         return model
     
-    
-#%%% Data generation
+
 def y(x):
+    """Return the mean as function of x."""
     return 0.5 * (x ** 2)
 
 def sigma(x):
+    """Return the standard deviation as a function of x."""
     return 0.3 * np.exp(x ** 2)
 
-def get_data(N_train, N_test):
+def get_data(N_train, N_test):    
+    """
+    Create a dataset.
     
-    "Create a dataset containing of N_train training samples"
-    "and N_test testing samples genereated according to y(x)"
-    "with an added noise term with variance sigma^2"
+    This function reates a dataset containing of N_train training samples
+    and N_test testing samples genereated according to y(x)
+    with an added noise term with variance sigma^2.
     
-    Xtrain=np.array(np.linspace(-1,1,N_train)) 
-    Ytrain=np.zeros(N_train)
-    Xtest=np.array(np.linspace(-0.99,0.99,N_test))
-    Ytest=np.zeros(N_test)
+    Parameters:
+        N_train (int): The number of training samples 
+        N_test  (int): The number of test samples
+    
+    Returns:
+        X_train, Y_train, X_test, Y_test: arrays genereated using y(x) as the mean
+        and a normal noise with standar deviation sigma(x).
+        
+    """    
+    Xtrain = np.array(np.linspace(-1,1,N_train)) 
+    Ytrain = np.zeros(N_train)
+    Xtest = np.array(np.linspace(-0.999,0.999,N_test)) 
+    Ytest = np.zeros(N_test)
     
     for i in range(0,N_train):
-        Ytrain[i]=y(Xtrain[i])+np.random.normal(0,sigma(Xtrain[i]))
+        Ytrain[i]=y(Xtrain[i]) + np.random.normal(0,sigma(Xtrain[i]))
     
     for i in range(0, N_test):
-        Ytest[i]=y(Xtest[i])+np.random.normal(0,sigma(Xtest[i]))
+        Ytest[i]=y(Xtest[i]) + np.random.normal(0,sigma(Xtest[i]))
         
     return Xtrain, Ytrain, Xtest, Ytest
 
-Xtrain, Ytrain, Xtest, Ytest = get_data(10000, 2000)
-plt.plot(Xtrain,Ytrain)
-plt.plot(Xtrain,y(Xtrain))
-plt.xlabel('x')
-plt.ylabel('y')
-plt.title('Test data')
-plt.show()
 
-#%%% Initiate and train model using gall
-model = net(Xtrain, Ytrain, n_hidden = np.array([50, 50, 50])).model
-predictions = model.predict(Xtest)
-for i in range(0, 100):
-    predictions += model.predict(Xtest)
-
-plt.plot(Xtest, predictions/101, label = 'predicted')
-plt.plot(Xtest, y(Xtest), label = 'real')
-plt.legend()
-plt.title('real and predicted')
-plt.xlabel('x')
-plt.ylabel('y')
-plt.show()
-
-
-plt.plot(Xtest,Ytest)
-plt.plot(Xtest,y(Xtest))
-plt.xlabel('x')
-plt.ylabel('y')
-plt.title('Test data 2')
-plt.show()
-
-#%%% Test 1
-def test(x, M, T):
+def test(x, M, T):   
+    """
+    Test if MC-dropout works.
     
-    "ADD docstring"
+    This function implements two tests on MC-dropout. We make M datasets
+    containing 10.000 datapoints. With this dataset, the model is trained. 
+    mu_hat is calculated using T forward passes trough the network and taking 
+    the mean. The predicted uncertainty is obtained by taking the standard
+    deviation. The first is to evaluate mu_hat(x) - mu(x) / std(predictions).
+    The second test is to look at the fraction of forward passes that is 
+    smaller than the actual value of mu. 
     
+    Parameters:
+        x: The x value at which the tests are evaluated.
+        M: The number of simulations.
+        T: The number of forward passes.
+        
+    Returns:
+        testresults1: An array containing the M evaluations of test 1
+        testresults2: An array containing the M evaluations of test 2
+    
+    """ 
     testresults1 = np.zeros(M)
     testresults2 = np.zeros(M)
     for i in range(0, M):
@@ -208,6 +208,36 @@ def test(x, M, T):
         testresults2[i] = len(predictions[predictions < y(x)]) / T
     return testresults1, testresults2
 
+
+#%% Testing and visualization
+
+#Visualize the test data
+Xtrain, Ytrain, Xtest, Ytest = get_data(10000, 2000)
+plt.plot(Xtrain,Ytrain)
+plt.plot(Xtrain,y(Xtrain))
+plt.xlabel('x')
+plt.ylabel('y')
+plt.title('Test data')
+plt.show()
+
+#Train a single model and evaluate the results
+model = net(Xtrain, Ytrain, n_hidden = np.array([200, 100, 50])).model
+predictions = [model.predict(Xtest)]
+for i in range(0, 100):
+    predictions.append(model.predict(Xtest))
+
+plt.errorbar(Xtest, np.mean(predictions, axis = 0), yerr = np.std(predictions,
+             axis = 0), errorevery = 50, label = 'predicted')
+plt.plot(Xtest, y(Xtest), label = 'real')
+plt.legend()
+plt.title('real and predicted, p = 0.05')
+plt.xlabel('x')
+plt.ylabel('y')
+plt.show()
+
+#Run the tests for multiple simulations and multiple values of x.
+#Note that this code is inefficient since we could use 1 simulation to test
+# for all 5 values of x. For our purposes this does not really matter. 
 
 xtests = np.linspace(-1, 1, 5)
 for x in xtests:

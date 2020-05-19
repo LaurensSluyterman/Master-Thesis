@@ -137,33 +137,27 @@ def get_scales(model, h_guess, difference, X_train, Y_train):
         weight_matrix = model.layers[i].get_weights()[0]
         bias_vector = model.layers[i].get_weights()[1]
         for j in range(np.shape(weight_matrix)[1]): 
-         #   bias_vector[j] += h_guess * bias_vector[j]
-            bias_vector[j] += h_guess
+            bias_vector[j] += h_guess * bias_vector[j]
             model.layers[i].set_weights([weight_matrix, bias_vector])
             L_2 = model.evaluate(X_train, Y_train, verbose = 0) \
                   - sum(model.losses).numpy()
-            #bias_vector[j] =  bias_vector[j] / (1 + h_guess)
-            bias_vector[j] -= h_guess
+            bias_vector[j] =  bias_vector[j] / (1 + h_guess)
             model.set_weights(original_weights)
             c = (L_2 - L_1) / ((h_guess ) ** 2)
             if c <= 0:
                 bias_scales.append((L_1 - L_2) / (h_guess)) 
-                print('H too small')
             else:
                 bias_scales.append(np.sqrt(np.log(difference) \
                                         / np.abs(c)))
             for k in range(np.shape(weight_matrix)[0]): 
-               # weight_matrix[k, j] += (1 + h_guess) * weight_matrix[k, j]
-                weight_matrix[k, j] += h_guess
+                weight_matrix[k, j] += (1 + h_guess) * weight_matrix[k, j]
                 model.layers[i].set_weights([weight_matrix, bias_vector])
                 L_2 = model.evaluate(X_train, Y_train, verbose = 0) \
                       - sum(model.losses).numpy()
-               # weight_matrix[k, j] = weight_matrix[k, j] / (1 + h_guess)
-                weight_matrix[k, j] -=  h_guess
+                weight_matrix[k, j] = weight_matrix[k, j] / (1 + h_guess)
                 model.set_weights(original_weights)
                 c = ((L_2 - L_1) / ((h_guess * weight_matrix[k, j]) ** 2 ))
                 if c <= 0:
-                    print('H too small')
                     weight_matrix_scales.append((L_1 - L_2) / (h_guess)) 
                 else:
                     weight_matrix_scales.append(np.sqrt(np.log(difference)\
@@ -175,8 +169,7 @@ def get_perturbation(original_weights, weight_scales, bias_scales):
     """
     Get a multidimensional noise sample.
     
-    This function calculates a multidemensional noise term where each
-    component has a specific scale calculated with 'get_scales'. The noise
+    This function calculates a multidemensional noise term. The noise
     is taken from a uniform distribution that ranges from -scale to +scale
     where each scale is different for each dimension and obtained using
     the function 'get scales'.
@@ -306,9 +299,12 @@ def expectation2(x, densities, weight_array, original_weights):
 
 def prediction_sampler(x, N, densities, weight_array, original_weights):    
     """
+    Sample a predicition.
+    
     This function calculates the predictions corresponding to
     a weight array that consists of weights sampeld uniformely from (a 
-    relevant part of) the paremeter space. 
+    relevant part of) the paremeter space. The sampling takes place
+    based on the densities that belong to the weights.
     
     Parameters:
         x: The x value at which the predictions are evaluated
@@ -318,6 +314,7 @@ def prediction_sampler(x, N, densities, weight_array, original_weights):
         densities: An array containing the densities of the weights in 
                    'weight_array'.
         original_weights: The original weights of the model after training
+        
     """
     indices = np.arange(0, len(densities))
     draw = np.random.choice(indices, N, p=densities, replace = True)
@@ -333,45 +330,22 @@ def prediction_sampler(x, N, densities, weight_array, original_weights):
     model.set_weights(original_weights)
     return mu_predictions, sigma_predictions
 
-def prediction_sampler_2(x, model, weight_array):    
-    """
-    This function calculates the predictions corresponding to
-    a weight array that consists of weights sampeld from the posterior
-    weight distribution. 
-    
-    Parameters:
-        x: The x value at which the predictions are evaluated
-        model: The model that we are using
-        weight_array: An array of weights that should be sampeled 
-                      from the posterior weight distribution. p(w|D)
-    
-    Returns:
-        The predictions corresponding to the weights provided by weight_array
-        at a given x value.
-    """
-    original_weights = model.get_weights()
-    mu_predictions = np.zeros(len(weight_array))
-    sigma_predictions = np.zeros(len(weight_array))
-    for i in range(len(weight_array)):
-        model.set_weights(weight_array[i])
-        mu_predictions[i]= model.predict(np.array([x]))[:,0]
-        sigma_predictions[i] = np.log(1
-                         + np.exp(model.predict(np.array([x]))[:,1][0])) \
-                         + 1e-3 
-    model.set_weights(original_weights)
-    return mu_predictions, sigma_predictions
 
 def proposal_distribution(weights, scale):   
     """
+    Define a proposal distribution.
+    
     This function gives the proposal distribution that is used by
-    'metropolis_hastings'.
+    'metropolis_hastings'. The picked distribution is a normal distribution 
+    centered around the current weight and with a scale that can be varied. 
     
     Parameters: 
         weights: The current weight.
         scale: The standard deviation of the normal noise that is added
                to the weights. 
     
-    Returns: A perturbed version of the input weight
+    Returns: A perturbed version of the input weight.
+    
     """   
     n_hidden = 50 
     perturbation = np.array([\
@@ -383,8 +357,7 @@ def proposal_distribution(weights, scale):
 
 def metropolis_hastings(model, N_samples, scale, X_train, Y_train):   
     """
-    This functions provides a basic inplementation of a metropolis hastings
-    algeorithm. 
+    Implement a simple metropolis hasting algeorithm.
     
     Parameters:
         model: The model that is used.
@@ -473,7 +446,11 @@ def test(x, N_simulations, N_samples, N_train, N_test, h_guess, difference):
     return testresults1_mu, testresults1_sigma\
 
 def test2(x, N_simulations, N_samples, N_train, N_test, h_guess, difference):   
-    """This function tests how well the sampling method works. 
+    """This function tests how well the sampling method works.
+    
+    This function evaluates (mu_hat - y(x))/ predicted_stdv. The predicted
+    standard deviation is calculated using "prediction_sampler". We sample
+    a number of mu and sigma and calculated the standard deviation.
     
     Parameters:
         x: The x value at which (prediction(x) - real(x)) / predicted stdev
@@ -507,7 +484,7 @@ def test2(x, N_simulations, N_samples, N_train, N_test, h_guess, difference):
         print(i / N_simulations * 100, '%', end='\r', flush=False)
     return testresults1_mu, testresults1_sigma
 
-#%%% Testing
+#%%% Visualizing the data and the predictions of a trained model
 X_train, Y_train, X_test, Y_test = get_data(10000, 2000)
 plt.plot(X_train,Y_train)
 plt.plot(X_train,y(X_train))
@@ -534,32 +511,29 @@ plt.show()
 original_weights = np.array(model.get_weights())
 model.set_weights(original_weights)    
 
-#%% Testing Metropolis Hasting
-weight_array = metropolis_hastings(model, 50, 10, X_train, Y_train)
-x = .2
-mu_test, sigma_test = prediction_sampler_2(x, model, weight_array)
-print("x =", x,
-      "prediction =", model.predict(np.array([x]))[:,0],
-      "real = ", y(x),
-      "\n predicted stdev at x = ", np.std(mu_test))
 
-
-
-
-#%%            
+#%% Testing the sampling method for individual datapoints.      
 weight_scales, bias_scales = get_scales(model, 0.1, 2, X_train, Y_train)
     
 densities, weight_array = get_densities(100, model , X_train, \
                                        Y_train, weight_scales, bias_scales)
 x = 0.6
 print("x =", x,
-      " prediction =",  model.predict(np.array([x]))[:,0][0], 
-      "\n real value =", y(x) ,
+      " mu_hat=",  model.predict(np.array([x]))[:,0][0], 
+      "\n mu =", y(x) ,
       "\n predicted stdev at x =", np.sqrt(expectation(x, densities, weight_array,
                                         original_weights))
 )
 
+print("x =", x,
+      " sigma_hat =",  1e-3 + np.log(1 + np.exp(model.predict(np.array([x]))[:,1][0])), 
+      "\n  sigma =", sigma(x) ,
+      "\n predicted stdev at x =", np.sqrt(expectation2(x, densities, weight_array,
+                                        original_weights)))
 
+
+# We look if quantifying the uncertainty via "prediction_sampler gives
+#  different results than using "expectation". 
 testmu, testsigma = prediction_sampler(x, 1000, densities, weight_array, original_weights)
 print("x =", x,
       "prediction =", model.predict(np.array([x]))[:,0],
@@ -568,17 +542,9 @@ print("x =", x,
 
 
 
-x = -3
-print("x =", x,
-      " prediction =",  1e-3 + np.log(1 + np.exp(model.predict(np.array([x]))[:,1][0])), 
-      "\n real value =", sigma(x) ,
-      "\n predicted stdev at x =", np.sqrt(expectation2(x, densities, weight_array,
-                                        original_weights)))
-
+#Visiualizing the tests for indivual datapoints
 x = 0.6
 mu_results, sigma_results = test(x, 50, 100, 10000, 0, 1 / 10000, 5000)
-
-
 plt.title("x = {x}, sigma = {std}".format(x = x, std = round(np.std(mu_results),2)))
 plt.hist(mu_results)
 plt.show()
@@ -588,3 +554,12 @@ plt.hist(sigma_results)
 plt.show()
 np.savetxt('test1mux=-1.out', mu_results, delimiter=',')
 np.savetxt('test1sigmax=-1.out', sigma_results, delimiter=',')
+
+#%% Testing Metropolis Hasting
+weight_array = metropolis_hastings(model, 50, 10, X_train, Y_train)
+x = .2
+mu_test, sigma_test = prediction_sampler(x, model, weight_array)
+print("x =", x,
+      "prediction =", model.predict(np.array([x]))[:,0],
+      "real = ", y(x),
+      "\n predicted stdev at x = ", np.std(mu_test))

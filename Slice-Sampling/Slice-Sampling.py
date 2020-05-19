@@ -31,7 +31,7 @@ def get_data(N_train, N_test):
     """
     Create a dataset.
     
-    This function reates a dataset containing of N_train training samples
+    This function creates a dataset containing of N_train training samples
     and N_test testing samples genereated according to y(x)
     with an added noise term with variance sigma^2.
     
@@ -216,9 +216,13 @@ def shrink_hypercube(hypercube, current_weight, previous_weight):
     return hypercube2        
 
 def get_weight_grad(model, inputs, outputs):
-    """ Gets gradient of model for given inputs and outputs for all weights
+    """ 
+    Obtain the gradients of the loss function with respect to the weights.
+    
+    Gets gradient of model for given inputs and outputs for all weights
     This code was written by mpariente and obtained from 
     https://stackoverflow.com/questions/51140950/how-to-obtain-the-gradients-in-keras
+    
     """
     x, y, sample_weight = model._standardize_user_data(inputs, outputs)
     output_grad = f(model._standardize_user_data(inputs, outputs))  
@@ -227,6 +231,8 @@ def get_weight_grad(model, inputs, outputs):
 def shrink_hypercube_2(hypercube, model, current_weight, previous_weight,
                         threshold):
     """
+    Shrink the hypercube using the gradient.
+    
     This function shrinks the hypercube using the gradient at the
     current weight to only update certain dimensions.
     
@@ -267,6 +273,8 @@ def shrink_hypercube_2(hypercube, model, current_weight, previous_weight,
 def slice_sampler(N_samples, model, h, X_train, Y_train, gradient = False,
                   threshold = 0.01):
     """
+    Implement the slice sampler algorithm.
+    
     This function implements a slice sampeler algorith as described in 
     (Neal 2003). The goal is to obtain samples from p(w|D).
     
@@ -292,6 +300,7 @@ def slice_sampler(N_samples, model, h, X_train, Y_train, gradient = False,
          walk behaviour of a slice-sampler. This means that a very large
          number of samples should be taken. I would like to advise not to trust
          the results of this sampler in this context. 
+         
     """    
     if gradient == True:
         grads = model.optimizer.get_gradients(model.total_loss, 
@@ -331,6 +340,8 @@ def slice_sampler(N_samples, model, h, X_train, Y_train, gradient = False,
 
 def prediction_sampler_2(x, model, weight_array):
     """
+    Sample a prediction.
+    
     This function calculates the predictions corresponding to
     a weight array that consists of weights sampeld from the posterior
     weight distribution. 
@@ -344,6 +355,7 @@ def prediction_sampler_2(x, model, weight_array):
     Returns:
         The predictions corresponding to the weights provided by weight_array
         at a given x value.
+        
     """
     original_weights = model.get_weights()
     mu_predictions = np.zeros(len(weight_array))
@@ -374,3 +386,4 @@ print("x =", x,
       "prediction =", model.predict(np.array([x]))[:,0],
       "real = ", y(x),
       "\n predicted stdev at x = ", np.std(mu_test))
+

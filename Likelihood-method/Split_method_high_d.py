@@ -24,14 +24,14 @@ def soft(x):
     return 1e-6 + tf.math.softplus(x)
 
 def y_difficult(x):
-    """Return y."""
+    """Return the mean as function of x."""
     return 0.1 * x[0] + 0.3 * x[1] + 0.1 * x[7] - x[8] * x[11]
 
 def sigma_difficult(x):
-    """Return sigma."""
+    """Return the standard deviation as a function of x."""
     return 0.2 * soft(0.1 * x[1] + 0.2 * x[2] - 0.05 *  x[4] * x[5] + 0.1 * x[11]
                 - 0.5 * x[12] + 0.3 * x[14] + 0.2 * x[8])
-   # return 0.1 * np.exp(x1 - x2 + x3 * x4 + x5 ** 0.2) + 0.1
+
 
 def get_fancy_data(N_train, N_test, mean, A):
     """
@@ -341,6 +341,8 @@ A = [[0.1,  0.4, 0, 0, 0,  0,  0, 0.1, 0.2, -0.3, 0.2, 0.1, -0.1, 0.1, 0],
       [0,    0, 0,   0,   0.4, 0, 0.2, 0, -0.2, 0.2, -0.1, 0.1, 0.3, 0.1, 0],
       [-0.2,  0, 0, -0.2, 0,   0.1, 0, -0.2,  0, 0, -0.2, 0,   0.1, 0, 0],
       [0,    0, 0.7, 0, 0, 0, 0.2, 0,    0, 0.7, 0, 0, 0, 0.2,0.1 ]]
+
+# Testing an individual run
 X_train, Y_train, X_test, Y_test = get_fancy_data(20000, 1000, mean, A)                
 models = Neural_network(X_train, Y_train, n_hidden = np.array([50, 50, 20]),
                         n_hidden_2 = np.array([50, 50, 20]),n_epochs = 50,
@@ -358,7 +360,7 @@ print(" predicted y =", model.predict(X_test[i].reshape(7,1).T)[:,0],
           X_test[i].reshape(7,1).T)[:,1]).numpy(),
                                     models.sigma_uncertainty(X_test[i].reshape(7,1).T)))
 
-
+# Testing a large number of runs
 N_tests = 100
 N_x_values = 40
 results = np.zeros((N_tests, N_x_values))

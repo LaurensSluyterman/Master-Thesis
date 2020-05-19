@@ -163,6 +163,8 @@ class Neural_network:
             self.model_2 = model_2
        
 #%% Testing
+            
+# Test a single simulation and a single value of x.
 X_train, Y_train, X_test, Y_test = get_data(50000, 200)            
 models = Neural_network(X_train, Y_train, n_hidden = np.array([50, 30]),
                         n_hidden_2 = np.array([50, 30]),n_epochs = 100,
@@ -180,6 +182,7 @@ print(" predicted y =", model.predict(x)[:,0],
       "\n real sigma =", sigma(x),
       "\n predicted nu =", 1 + soft(uncertainty_model.predict(x)[0][3:]))
 
+#Test a number of simulations for different values of x. 
 n_hidden = np.array([50])
 N_tests = 50
 x_tests = np.linspace(-1, 1, 5)
@@ -195,21 +198,9 @@ for i in range(N_tests):
     for j, x in enumerate(x_tests):
         results[i, j] = (model.predict(np.array([x]))[:,0] - y(x) )/ (
                 soft(uncertainty_model.predict(np.array([x]))[:,2])).numpy()
-    print(i, "/", N_tests)    
+    print(i, "/", N_tests)  
+
+    
 plt.hist(results[:,1])
-np.std(results, axis = 0)
+np.std(results, axis = 0) #Note that the method does not give calibrated results
         
-
-plt.plot(X_test, soft(model.predict(X_test)[:,1]), label = 'predicted sigma')
-plt.plot(X_test, (model.predict(X_test)[:,0]), label = 'predicted y')
-plt.plot(X_test, y(X_test), label = 'true y')
-plt.plot(X_test, sigma(X_test), label = 'true sigma')
-plt.legend()
-plt.title('predicted vs true ')
-plt.show()
-
-plt.plot(X_test, soft(uncertainty_model.predict(X_test)[:,1]).numpy(),
-         label = 'predicted')
-#plt.plot(X_test, y(X_test), label = 'true')
-plt.legend()
-plt.show()
