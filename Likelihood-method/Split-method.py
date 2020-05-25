@@ -30,7 +30,7 @@ def get_data(N_train, N_test):
     """
     Create a dataset.
     
-    This function reates a dataset containing of N_train training samples
+    This function creates a dataset containing the N_train training samples
     and N_test testing samples genereated according to y(x)
     with an added noise term with variance sigma^2.
     

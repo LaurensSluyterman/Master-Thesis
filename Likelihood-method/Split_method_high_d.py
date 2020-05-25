@@ -368,7 +368,7 @@ results2 = np.zeros((N_x_values))
 X_testing =  get_fancy_data(N_x_values, 0, mean, A)[0]
 N_dimensions = np.shape(X_testing)[1]
 for i in range(N_tests):
-    X_train, Y_train, X_test, Y_test = get_fancy_data(5000, 0, mean, A)          
+    X_train, Y_train, X_test, Y_test = get_fancy_data(50, 0, mean, A)          
     models = Neural_network(X_train, Y_train, n_hidden = np.array([50, 50, 30]), 
                             n_hidden_2 = np.array([50, 50, 30]), n_epochs = 80,
                             n_epochs_2 = 50, verbose = False)
@@ -397,7 +397,7 @@ coverage_fractions = results2 / N_tests
 #Note the difference in predicted uncertainties
 models.mu_uncertainty(X_testing[20].reshape(N_dimensions,1).T)
 models.mu_uncertainty(0.1 * X_testing[20].reshape(N_dimensions,1).T)
-models.mu_uncertainty(10 * X_testing[20].reshape(N_dimensions,1).T)
+models.mu_uncertainty(0.01 * X_testing[20].reshape(N_dimensions,1).T)
 
 #%% Plots
 
