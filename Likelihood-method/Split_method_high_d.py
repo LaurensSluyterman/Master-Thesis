@@ -155,7 +155,7 @@ class Neural_network:
             Give the loss function used for the tau-models.
             
             This function calculates the negative loglikelihood of a 
-            normal distribution with mean mu_hat and variance tau.
+            normal distribution with mean mu_hat and standard deviation tau.
             """
             tau = soft(outputs)
             l = -K.log(tau) - 0.5 * K.square((targets[...,:1] - 

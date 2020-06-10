@@ -135,7 +135,7 @@ class Neural_network:
             Give the loss function used for the tau-models.
             
             This function calculates the negative loglikelihood of a 
-            normal distribution with mean mu_hat and variance tau.
+            normal distribution with mean mu_hat and standard deviation tau.
             """
             tau = soft(outputs)
             l = -K.log(tau) - 0.5 * K.square((targets[...,:1] - 
@@ -315,7 +315,7 @@ def confidence_interval(sigma_hat, nu):
 # Test an indidual simulation for 1 value of x
 X_train, Y_train, X_test, Y_test = get_data(20000, 1000)                
 models = Neural_network(X_train, Y_train, n_hidden = np.array([50, 50, 20]),
-                        n_hidden_2 = np.array([50, 50, 20]),n_epochs = 200,                        n_epochs_2 = 50)
+                        n_hidden_2 = np.array([50, 50, 20]),n_epochs = 200, n_epochs_2 = 50)
 
 model = models.model
 

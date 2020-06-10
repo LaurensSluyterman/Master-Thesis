@@ -137,11 +137,11 @@ class net:
 
 def y(x):
     """Return the mean as function of x."""
-    return 0.5 * (x ** 2)
+    return 0.5 * (x ** 3)
 
 def sigma(x):
     """Return the standard deviation as a function of x."""
-    return 0.3 * np.exp(x ** 2)
+    return 0.2 * np.abs((x - 0.2 ) * (x + 0.5))
 
 def get_data(N_train, N_test):    
     """
@@ -226,17 +226,18 @@ predictions = [model.predict(Xtest)]
 for i in range(0, 100):
     predictions.append(model.predict(Xtest))
 
-plt.errorbar(Xtest, np.mean(predictions, axis = 0), yerr = np.std(predictions,
-             axis = 0), errorevery = 50, label = 'predicted')
-plt.plot(Xtest, y(Xtest), label = 'real')
+#plt.errorbar(Xtest, np.mean(predictions, axis = 0), yerr = np.std(predictions,
+#             axis = 0), errorevery = 50, label = 'predicted')
+plt.plot(Xtest, y(Xtest), label = '$y(x)$')
+plt.plot(Xtest, np.mean(predictions, axis = 0), label = '$\hat{y}(x)$')
 plt.legend()
-plt.title('real and predicted, p = 0.05')
+plt.title('real and predicted')
 plt.xlabel('x')
 plt.ylabel('y')
 plt.show()
 
 #Run the tests for multiple simulations and multiple values of x.
-#Note that this code is inefficient since we could use 1 simulation to test
+#Note that this code is inefficient since we could use 1 sim'lation to test
 # for all 5 values of x. For our purposes this does not really matter. 
 
 xtests = np.linspace(-1, 1, 5)
