@@ -20,11 +20,11 @@ import scipy
 #%%
 def y(x):  
     """Return the mean as function of x."""
-    return np.exp(- 6 * x ** 2)
+    return np.exp(- x ** 2)
 
 def sigma(x):
     """Return the standard deviation as a function of x."""
-    return 0.1 * np.exp(- 6 * x ** 2)
+    return 0.1 * np.exp(-  x ** 2)
 
 def get_data(N_train, N_test):  
     """
@@ -369,18 +369,18 @@ for i in range(N):
     plt.show()
 
 
-plt.plot(X_test, y(X_test), label = 'mu')
-plt.plot(X_test, model.predict(X_test)[:,0], label = "mu_hat")
+plt.plot(X_test, y(X_test), label = '$\mu$')
+plt.plot(X_test, model.predict(X_test)[:,0], label = "$\hat{\mu}$")
 plt.xlabel("x")
 plt.ylabel("y")
-plt.title('Predicted mu')
+plt.title('Predicted and real $\mu$')
 plt.legend()
 plt.show()
 
-plt.plot(X_test, sigma(X_test), label = 'sigma')
-plt.plot(X_test, soft(model.predict(X_test)[:,1]), label = "sigma-hat")
+plt.plot(X_test, sigma(X_test), label = '$\sigma$')
+plt.plot(X_test, soft(model.predict(X_test)[:,1]), label = "$\hat{\sigma}$")
 plt.xlabel("x")
-plt.title('Predicted sigma')
+plt.title('Predicted and real $\sigma$')
 plt.legend()
 plt.show()
 

@@ -25,7 +25,7 @@ def y(x):
 
 def sigma(x):
     """Return the standard deviation as a function of x."""
-    return 0.3 * np.exp(x ** 2)
+    return 0.1 * x ** 4
 
 def get_data(N_train, N_test):  
     """

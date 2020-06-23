@@ -18,7 +18,7 @@ def sigma(x):
     """Define the standard deviation of the data."""
     return 1
 
-N_datapoints = 10000  
+N_datapoints = 3000 
 N_test = 2000
 X_train = np.array(np.linspace(-2,2,N_datapoints)) 
 Y_train = np.zeros(N_datapoints)
@@ -65,7 +65,7 @@ model.weights()
 
 #Visualize the test data
 plt.title("Test Data")
-plt.plot(X_train,Y_train)
+plt.plot(X_train,Y_train, 'o')
 plt.plot(X_train,real_train)
 plt.xlabel("x")
 plt.ylabel("y")
