@@ -48,12 +48,12 @@ a = np.ones(len(X_train))
 Phi = np.stack((a, X_train), axis = -1)
 alpha = 1.0
 beta = 1 
-Sinv = alpha * np.identity(2) + beta * np.transpose(Phi).dot(Phi)
+Sinv = alpha * np.identity(2) + beta * np.matmul(np.transpose(Phi), Phi)
 S = np.linalg.inv(Sinv)
-m = beta * S.dot(np.transpose(Phi)).dot(Y_train)
+m = beta * np.matmul(S, np.matmul(np.transpose(Phi),(Y_train)))
 
 # We weights of the linear model have the following distribution
-weights = np.random.normal(loc = m, scale = np.abs(S))
+weights = np.random.multivariate_normal(m, S)
 # Dropout gives the following weights
 model.weights()
 
