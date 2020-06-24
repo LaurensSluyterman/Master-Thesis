@@ -3,7 +3,7 @@ Created on Sat May 30 14:20:41 2020.
 
 @author: Laurens Sluijterman
 
-N.B. This code is under construction, docstring is still from a different file!
+
 """
 
 #%% Imports

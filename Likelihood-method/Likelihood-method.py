@@ -105,7 +105,7 @@ class Neural_network:
             l = - K.log(sigma) - 0.5 * K.square((y - mu) / sigma)
             return - l
         
-        c = 0
+        c = 1 / len(X_train)
         inputs = Input(shape=(1))
         inter = Dense(n_hidden[0], activation='elu', 
                       kernel_regularizer = l2(c),
@@ -145,7 +145,7 @@ class Neural_network:
                     
                 return (- p1 - p2 - p3)
             
-            c_2 = 0.00
+            c_2 = 1 / len(X_train_2)
             inputs = Input(shape=(1))
             inter = Dense(n_hidden_2[0], activation='elu', 
                           kernel_regularizer = l2(c_2),
