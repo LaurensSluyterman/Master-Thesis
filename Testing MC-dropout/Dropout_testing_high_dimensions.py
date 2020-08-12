@@ -1,5 +1,7 @@
-""""
-Created on Thu Feb 20 21:11:27 2020
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Aug 10 15:24:01 2020
 
 @author: Laurens Sluijterman (the class is written by Yarin Gall)
 """
@@ -7,7 +9,6 @@ Created on Thu Feb 20 21:11:27 2020
 import warnings
 warnings.filterwarnings("ignore")
 from matplotlib import pyplot as plt
-import math
 from scipy.special import logsumexp
 import numpy as np
 import tensorflow_probability as tfp
@@ -18,12 +19,12 @@ from tensorflow.keras.layers import Dense
 from tensorflow.keras import Model
 import keras
 import tensorflow as tf
-import matplotlib.pyplot as plt
 tfd = tfp.distributions
 tfpl = tfp.layers
 tfk = tf.keras
 tfkl = tf.keras.layers
 import time
+import random
 
 #%%%% Gall's class
 class net:
@@ -67,14 +68,14 @@ class net:
         lengthscale = 1
         reg = lengthscale**2 * (1 - dropout) / (2. * N * tau)
 
-        inputs = Input(shape=(1))
+        inputs = Input(shape=(15))
         inter = Dropout(dropout)(inputs, training=True)
         inter = Dense(n_hidden[0], activation='relu', kernel_regularizer=keras.regularizers.l2(reg))(inter)
         for i in range(len(n_hidden) - 1):
             inter = Dropout(dropout)(inter, training=True)
             inter = Dense(n_hidden[i+1], activation='relu', kernel_regularizer=keras.regularizers.l2(reg))(inter)
         inter = Dropout(dropout)(inter, training=True)
-        outputs = Dense(1, kernel_regularizer=keras.regularizers.l2(reg))(inter)
+        outputs = Dense(2, kernel_regularizer=keras.regularizers.l2(reg))(inter)
         model = Model(inputs, outputs)
 
         model.compile(loss='mean_squared_error', optimizer='adam')
@@ -134,121 +135,123 @@ class net:
         # We are done!
         return model
     
+def soft(x):
+    """Return log(1 + exp(x)) + 1e-6."""
+    return 1e-6 + tf.math.softplus(x)
 
-def y(x):
+def y_difficult_1(x):
     """Return the mean as function of x."""
-    return 0.5 * (x ** 3)
+    return 0.1 * x[0] + 0.3 * x[1] + 0.1 * x[7] - x[8] * x[11]
 
-def sigma(x):
+def y_difficult_2(x):
+    """Return the mean as function of x."""
+    return 0.1 * x[3] + 0.3 * x[1] + 0.1 * x[8] - x[11] * x[7]
+
+def sigma_difficult(x):
     """Return the standard deviation as a function of x."""
-    return 0.2 * np.abs((x - 0.2 ) * (x + 0.5))
+    return 0.05 * soft(0.1 * x[1] + 0.2 * x[2] - 0.05 *  x[4] * x[5] + 0.1 * x[11]
+                - 0.5 * x[12] + 0.3 * x[14] + 0.2 * x[8])
 
-def get_data(N_train, N_test):    
+
+def get_fancy_data(N_train, N_test, mean, A):
     """
-    Create a dataset.
+    Get a difficult dataset.
     
-    This function reates a dataset containing of N_train training samples
-    and N_test testing samples genereated according to y(x)
-    with an added noise term with variance sigma^2.
-    
+    This function gets a dataset consisting of N_train training values
+    and N_test test values. The y values are 1-dimensional and the x-values
+    are dim(mean) dimensional. The matrix A specifies the covariance matrix
+    of the noise (Sigma = A^T dot A). First, an x value is sampeled from
+    N(mean, Sigma). Secondly, y is calculated via "y_difficult" and 
+    normally distriubted noise is added with standard deviation 
+    "sigma_difficult(x)".
+
     Parameters:
-        N_train (int): The number of training samples 
-        N_test  (int): The number of test samples
-    
+        N_train (int): The number of desired training samples.
+        N_test (int): The number of desired test samples.
+        mean: (d x1 matrix) The mean of the normal distribution from 
+            which x is sampled.
+        A (d x d matrix): A matrix that specifies the covariance matrix for
+            the normal distribution from which x is sampeled. 
+
     Returns:
-        X_train, Y_train, X_test, Y_test: arrays genereated using y(x) as the mean
-        and a normal noise with standar deviation sigma(x).
-        
-    """    
-    Xtrain = np.array(np.linspace(-1,1,N_train)) 
-    Ytrain = np.zeros(N_train)
-    Xtest = np.array(np.linspace(-0.999,0.999,N_test)) 
-    Ytest = np.zeros(N_test)
-    
-    for i in range(0,N_train):
-        Ytrain[i]=y(Xtrain[i]) + np.random.normal(0,sigma(Xtrain[i]))
-    
-    for i in range(0, N_test):
-        Ytest[i]=y(Xtest[i]) + np.random.normal(0,sigma(Xtest[i]))
-        
-    return Xtrain, Ytrain, Xtest, Ytest
-
-
-def test(x, M, T):   
+        X_train: An array of size N_train by dim(mean) consisting of the 
+                training x-values.
+        Y_train: An array of size N_train by 1 consisting of the y values 
+                corresponding to X_train.
+        X_test: An array of size N_testby dim(mean) consisting of the 
+                training x-values.
+        Y_est: An array of size N_test by 1 consisting of the y values 
+                corresponding to X_test.
+                
     """
-    Test if MC-dropout works.
-    
-    This function implements two tests on MC-dropout. We make M datasets
-    containing 10.000 datapoints. With this dataset, the model is trained. 
-    mu_hat is calculated using T forward passes trough the network and taking 
-    the mean. The predicted uncertainty is obtained by taking the standard
-    deviation. The first is to evaluate mu_hat(x) - mu(x) / std(predictions).
-    The second test is to look at the fraction of forward passes that is 
-    smaller than the actual value of mu. 
-    
-    Parameters:
-        x: The x value at which the tests are evaluated.
-        M: The number of simulations.
-        T: The number of forward passes.
-        
-    Returns:
-        testresults1: An array containing the M evaluations of test 1
-        testresults2: An array containing the M evaluations of test 2
-    
-    """ 
-    testresults1 = np.zeros(M)
-    testresults2 = np.zeros(M)
-    for i in range(0, M):
-        Xtrain, Ytrain, Xtest, Ytest = get_data(10000, 2000)
-        model = net(Xtrain, Ytrain, n_hidden = np.array([50, 50, 50])).model
-        predictions = np.zeros(T)
-        for j in range(0, T):
-            predictions[j] = model.predict(np.array([x]))
-        testresults1[i] = (np.mean(predictions) - y(x)) / np.std(predictions)
-        testresults2[i] = len(predictions[predictions < y(x)]) / T
-    return testresults1, testresults2
+    cov = np.transpose(A).dot(A)
+    X_train = np.random.multivariate_normal(mean, cov, (N_train,))
+    Y_train = np.zeros((N_train, 2))
+    X_test = np.random.multivariate_normal(mean, cov, (N_test,))
+    Y_test = np.zeros((N_test, 2))
+    for i in range(N_train):
+        Y_train[i,0] = y_difficult_1(X_train[i]) \
+            + np.random.normal(0, sigma_difficult(X_train[i]))
+        Y_train[i,1] = y_difficult_2(X_train[i]) \
+            + np.random.normal(0, sigma_difficult(X_train[i]))            
+    for i in range(N_test):
+        Y_test[i,0] = y_difficult_1(X_test[i]) + \
+                  np.random.normal(0, sigma_difficult(X_test[i]))
+        Y_test[i,1] = y_difficult_1(X_test[i]) + \
+                  np.random.normal(0, sigma_difficult(X_test[i]))
+    return X_train, Y_train, X_test, Y_test 
 
 
-#%% Testing and visualization
 
-#Visualize the test data
-Xtrain, Ytrain, Xtest, Ytest = get_data(10000, 2000)
-plt.plot(Xtrain,Ytrain)
-plt.plot(Xtrain,y(Xtrain))
-plt.xlabel('x')
-plt.ylabel('y')
-plt.title('Test data')
-plt.show()
+#%% Testing 
+np.random.seed(2)
+mean = [0, 0.1, 0.2, 0.3, 0.1, 
+        0.5, -0.3, 0.1, -0.2, 0.5,
+        0.5, 0, 0.2, 0.2, -0.2]
+A = [[0.1,  0.4, 0, 0, 0,  0,  0, 0.1, 0.2, -0.3, 0.2, 0.1, -0.1, 0.1, 0], 
+      [0.1, 0.3, 0, 0, 0,  0.1, 0, 0.1, -0.3, -0.3, 0, 0, 0.1, -0.2, 0.3],
+      [0,    0, 0,   0, 0, 0, -0.1, 0.1, 0.4, -0.3, 0.1, 0, 0, 0, 0],
+      [0.4,  0, 0,  0.2, 0, 0,  0.21, 0, 0, 0, 0, 0.1, 0.4, 0.1, 0.2],
+      [0,    0, 0,   0,   0.4, 0, 0.2, 0, -0.2, 0.2, -0.1, 0.1, 0.3, 0.1, 0],
+      [-0.2,  0, 0, -0.2, 0,   0.1, 0, -0.2,  0, 0, -0.2, 0,   0.1, 0, 0],
+      [0,    0, 0.7, 0, 0, 0, 0.2, 0,    0, 0.7, 0, 0, 0, 0.2,0.1 ]]
+
+# Testing an individual run
+X_train, Y_train, X_test, Y_test = get_fancy_data(20000, 1000, mean, A)  
+
+real_y_test = np.zeros((1000, 2))
+for i in range(1000):
+    real_y_test[i, 0] = y_difficult_1(X_test[i])
+    real_y_test[i, 1] = y_difficult_2(X_test[i])
+
 
 #Train a single model and evaluate the results
-model = net(Xtrain, Ytrain, n_hidden = np.array([200, 100, 50])).model
-predictions = [model.predict(Xtest)]
-for i in range(0, 100):
-    predictions.append(model.predict(Xtest))
+T_1 = np.array(np.zeros(1000))
+T_2 = np.array(np.zeros(1000))
+for j in range(0, 100):
+    X_train, Y_train = get_fancy_data(20000, 0, mean, A)[0],  \
+                       get_fancy_data(20000, 0, mean, A)[1]
+    model = net(X_train, Y_train, n_hidden = np.array([50, 50, 50])).model
+    predictions = [model.predict(X_test)]
+    for i in range(0, 99):
+        predictions.append(model.predict(X_test))
+    T_1 = np.vstack(((np.mean(predictions, axis = 0)[:,0] - real_y_test[:,0]) /\
+               np.std(predictions, axis = 0)[:,0], T_1))
+    T_2 = np.vstack(((np.mean(predictions, axis = 0)[:,1] - real_y_test[:,1]) /\
+               np.std(predictions, axis = 0)[:,1], T_2))
+    print(j, '/100')
+    
+    
 
-#plt.errorbar(Xtest, np.mean(predictions, axis = 0), yerr = np.std(predictions,
-#             axis = 0), errorevery = 50, label = 'predicted')
-plt.plot(Xtest, y(Xtest), label = '$y(x)$')
-plt.plot(Xtest, np.mean(predictions, axis = 0), label = '$\hat{y}(x)$')
-plt.legend()
-plt.title('real and predicted')
-plt.xlabel('x')
-plt.ylabel('y')
+plt.hist(np.std(T_1[:100], axis = 0), label = 'T_{1}')
+plt.title("Standard deviation of $T_{1}$")
+plt.xlabel("std(T)")
 plt.show()
 
-#Run the tests for multiple simulations and multiple values of x.
-#Note that this code is inefficient since we could use 1 simulation to test
-# for all 5 values of x. For our purposes this does not really matter. 
 
-xtests = np.linspace(-1, 1, 5)
-for x in xtests:
-    test_1, test_2 = test(x, 100, 200)
-    plt.title("x = {x}, sigma = {std}".format(x = x, std = round(np.std(test_1),2)))
-    plt.hist(test_1)
-    plt.show()
-    plt.title("x = {x}".format(x = x))
-    plt.hist(test_2)
-    plt.show()
-    
-    
+plt.hist(np.std(T_2[:100], axis = 0), label = 'T_{2}', bins = 10)
+plt.title("Standard deviation of $T_{2}$")
+plt.xlabel("std(T)")
+plt.show()
+
 
